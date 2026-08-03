@@ -87,7 +87,7 @@ venv/bin/python main.py --cpu --listen 0.0.0.0 --port 8188
 Everything needed is in [docker/](docker/): a `Dockerfile` that clones ComfyUI pinned to a known-good commit and installs CPU-only torch + dependencies inside the image, and a `docker-compose.yml` that bind-mounts everything mutable so it never needs a rebuild for day-to-day changes:
 
 - `docker/data/{models,input,output,user}` — persistent ComfyUI data, on the host.
-- `../custom-nodes/<package>` — each FLAIR custom-node package, mounted read-only straight from this repo's checkout. Edit a node's `.py` file on the host, restart the container, done — no image rebuild.
+- `../custom-nodes/` — the whole directory, mounted read-only as ComfyUI's entire `custom_nodes/` folder. Edit a node's `.py` file on the host, restart the container, done — no image rebuild, no compose edit either.
 
 Build and run:
 
@@ -107,7 +107,7 @@ curl http://127.0.0.1:8188/
 
 The container publishes port 8188 bound to `127.0.0.1` only (not exposed to the outside network directly) — see "Reverse proxy" below.
 
-**Adding a new FLAIR custom-node package:** add one more bind-mount line to `docker/docker-compose.yml` under the `flair_declutter`/`useless_text` lines, pointing at the new package directory. No Dockerfile changes needed.
+**Adding a new FLAIR custom-node package:** just create the folder under `custom-nodes/` — the whole directory is mounted as one, so it appears automatically on the next container restart (`docker compose up -d`, no rebuild). No `docker-compose.yml` or Dockerfile changes needed.
 
 **Bumping the pinned ComfyUI version:** edit `COMFYUI_REF` (a commit hash) at the top of `docker/Dockerfile`, then `docker compose build`.
 

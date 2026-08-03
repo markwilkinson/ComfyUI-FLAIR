@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-08-03
+
+### Changed
+
+- `docker/docker-compose.yml`: replaced the per-package custom-node
+  bind-mounts with a single mount of the whole `custom-nodes/` directory
+  onto ComfyUI's `custom_nodes/`. New node packages now appear on container
+  restart with zero `docker-compose.yml`/Dockerfile edits, closing the gap
+  that caused the 0.2.1 bug. Trade-off: the container's one stock example
+  node (`websocket_image_save.py`) no longer appears, since the mount
+  replaces the directory rather than adding to it -- not part of this
+  project, not a loss that matters here. Verified: 159 nodes visible via
+  `/object_info` after the change, all FLAIR nodes present.
+
 ## [0.2.1] - 2026-08-03
 
 ### Fixed

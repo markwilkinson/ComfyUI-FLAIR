@@ -19,10 +19,12 @@ services:
       - ./data/output:/app/ComfyUI/output
       - ./data/user:/app/ComfyUI/user
 
-      # FLAIR custom nodes, mounted individually from the checked-out repo
-      # rather than baked into the image -- edit a node's .py file on the
-      # host and it's live on container restart, no image rebuild needed.
-      # Add one line per new package under ../custom-nodes/.
-      - ../custom-nodes/flair_declutter:/app/ComfyUI/custom_nodes/flair_declutter:ro
-      - ../custom-nodes/useless_text:/app/ComfyUI/custom_nodes/useless_text:ro
-      - ../custom-nodes/flair-analytics:/app/ComfyUI/custom_nodes/flair-analytics:ro
+      # FLAIR custom nodes: the whole custom-nodes/ directory from this repo
+      # checkout, mounted as ComfyUI's entire custom_nodes/ dir. Any package
+      # folder added under ../custom-nodes/ just appears -- no compose edit,
+      # no rebuild. Edit a node's .py file on the host and it's live on
+      # container restart. Note: this REPLACES the container's built-in
+      # custom_nodes/ dir rather than adding to it, so the one stock example
+      # ComfyUI ships there (websocket_image_save.py) won't show up -- not
+      # part of this project, not a loss that matters here.
+      - ../custom-nodes:/app/ComfyUI/custom_nodes:ro
