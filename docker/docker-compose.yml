@@ -25,3 +25,4 @@ services:
       # Add one line per new package under ../custom-nodes/.
       - ../custom-nodes/flair_declutter:/app/ComfyUI/custom_nodes/flair_declutter:ro
       - ../custom-nodes/useless_text:/app/ComfyUI/custom_nodes/useless_text:ro
+      - ../custom-nodes/flair-analytics:/app/ComfyUI/custom_nodes/flair-analytics:ro
