@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Design-conversation handoff notes and editor workspace files -- local
+# working notes, not meant to be published in the repo.
+handoff*.md
+*.code-workspace
+
+# Docker bind-mount target for runtime ComfyUI data (models/input/output/user)
+# -- created locally per docker/README.md instructions, not shipped in git.
+docker/data/

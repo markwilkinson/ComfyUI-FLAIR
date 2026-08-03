@@ -1,0 +1,27 @@
+services:
+  comfyui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: comfyui-flair:latest
+    container_name: comfyui-flair
+    restart: unless-stopped
+    ports:
+      # Bound to localhost only -- lighttpd (or whatever reverse proxy is in
+      # front) talks to 127.0.0.1:8188 on the host; the port is not meant to
+      # be reachable directly from outside the host.
+      - "127.0.0.1:8188:8188"
+    volumes:
+      # Mutable ComfyUI data, persisted on the host across container
+      # rebuilds/restarts.
+      - ./data/models:/app/ComfyUI/models
+      - ./data/input:/app/ComfyUI/input
+      - ./data/output:/app/ComfyUI/output
+      - ./data/user:/app/ComfyUI/user
+
+      # FLAIR custom nodes, mounted individually from the checked-out repo
+      # rather than baked into the image -- edit a node's .py file on the
+      # host and it's live on container restart, no image rebuild needed.
+      # Add one line per new package under ../custom-nodes/.
+      - ../custom-nodes/flair_declutter:/app/ComfyUI/custom_nodes/flair_declutter:ro
+      - ../custom-nodes/useless_text:/app/ComfyUI/custom_nodes/useless_text:ro
