@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-08-03
+
+### Added
+
+- `custom-nodes/flair-analytics/PLAN.md` — porting plan for turning the
+  FLAIR-GG-Analytics Jupyter notebooks (read-only reference, not part of this
+  repo) into ComfyUI nodes, one node at a time. Corrects an initial
+  assumption of a Python/Ruby/R language mix: all 9 real notebooks are
+  Python (JupyterLite/Pyodide), no R/Ruby kernel exists anywhere; two
+  notebooks do contain a dead/never-executed Ruby array-append idiom
+  (`sites << site`) left over from an earlier prototype, to be fixed rather
+  than faithfully ported.
+- `custom-nodes/flair-analytics/FLAIR_LoadBySecretKey` — the first ported
+  node. Fetches a FLAIR-GG Virtual Platform federated-query result by its
+  secret key (`GET .../LDP/FLAIR/{key}`, outer JSON decode), matching the
+  data-loading step common to all 9 notebooks. Outputs a new custom type,
+  `FLAIR_PROVIDER_DATA`, so downstream nodes can only be wired to sockets
+  that expect this shape. Verified end-to-end through a real `/prompt`
+  submission (chained into the stock `PreviewAny` node) for both the
+  placeholder-key-rejection and HTTP-404 error paths, confirming how a
+  raised exception surfaces via `/history`'s `execution_error` message.
+
+### Fixed
+
+- Confirmed the FLAIR-GG Virtual Platform's TLS certificate validates
+  cleanly (`bgv.cbgp.upm.es`) — the node defaults to verified HTTPS rather
+  than carrying forward the source notebooks'
+  `urllib3.disable_warnings(InsecureRequestWarning)`, which was unwarranted.
+
 ## [0.1.0] - 2026-08-03
 
 ### Added

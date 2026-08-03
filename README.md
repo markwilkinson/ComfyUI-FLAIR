@@ -22,7 +22,7 @@ The real goal of this project isn't a nicer node-editor — it's provenance: eve
 | **KNIME** *(general knowledge only — not researched in depth here)* | Live visual node canvas — closest interaction analog to this project | Yes — drag-and-drop, built for non-programmers | Not built-in by default; FAIR/RO-Crate support exists as research-community add-ons, not core | Limited — mainly single-machine, some server/cluster editions exist commercially | Build a KNIME node (Java-based extension API) |
 | **This project (ComfyUI-FLAIR)** | Live visual canvas, edit-and-see-immediately | Yes — that's the design goal for lab end users | **Planned, not yet built** — aiming for the same Provenance Run Crate tier as Galaxy, generated automatically per node run | No — single process, one job at a time | A short, plain Python class (see `custom-nodes/useless_text` for a working example) |
 
-Only Galaxy and LifeWatch/D4Science/NaaVRE were actually researched in depth for this comparison (see [handoff2_galaxy_cwl.md](handoff2_galaxy_cwl.md) for the full reasoning); the Nextflow/Snakemake/KNIME row is included for completeness from general knowledge and should be verified properly before it goes into anything like a grant application or paper.
+Only Galaxy and LifeWatch/D4Science/NaaVRE were actually researched in depth for this comparison; the Nextflow/Snakemake/KNIME row is included for completeness from general knowledge and should be verified properly before it goes into anything like a grant application or paper.
 
 **Compared to Galaxy — the load-bearing comparison, no hedging:** Galaxy already does automatic Provenance Run Crate generation, out of the box, in production, with two-way WorkflowHub integration built in. **We should never claim "better provenance than Galaxy"** — that doesn't hold up. What's actually different is the experience: Galaxy is submit-and-check-back-later, built for long command-line bioinformatics jobs on a cluster; this project is drag-a-value, see-the-result-immediately — a genuinely different fit for someone tweaking a map-rendering parameter and wanting to see the picture change right now. In exchange we give up real cluster scheduling and 15+ years of Galaxy's published tools, documentation, and community.
 
@@ -50,8 +50,8 @@ Then, from your `ComfyUI` clone:
 cd ComfyUI
 python3.10 -m venv venv
 venv/bin/pip install --upgrade pip
-# CPU-only torch -- there is no GPU workload here (no diffusion models), see
-# handoff.md's "Deployment plan" for why.
+# CPU-only torch -- there is no GPU workload here (no diffusion models),
+# see "Deployment context" below for why.
 venv/bin/pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 venv/bin/pip install -r requirements.txt
 ```
@@ -129,4 +129,6 @@ ComfyUI uses WebSockets for live execution progress in the graph editor, so make
 
 ## Deployment context
 
-See [handoff.md](handoff.md)'s "Deployment plan" section for the fuller reasoning behind CPU-only / no-GPU, single-queue scaling caveats, and licensing notes (ComfyUI is GPLv3).
+- **CPU-only / no GPU:** there's no Stable Diffusion/diffusion-model workload here, so none of the usual GPU/VRAM sizing advice for ComfyUI applies — CPU-only operation is officially supported (`--cpu`).
+- **Single-queue scaling caveat:** ComfyUI runs one execution queue — jobs process one at a time on one backend process, not in parallel across users. Fine at lab scale; if it ever needs real concurrency, the fix is multiple backend instances behind a dispatcher, not a bigger single machine.
+- **License:** ComfyUI is GPLv3. If a patched/customized version is ever redistributed as a lab image, copyleft obligations apply — check with UPM tech transfer/legal before that step.

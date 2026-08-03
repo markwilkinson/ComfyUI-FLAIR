@@ -1,0 +1,123 @@
+"""
+FLAIR-GG analytics nodes -- ports of the FLAIR-GG-Analytics Jupyter notebooks
+(read-only reference at ../../../FLAIR-GG-Analytics/content/FLAIR-GG/) into
+ComfyUI nodes. See PLAN.md in this folder for the overall porting strategy.
+
+Every one of the 9 real analytics notebooks starts with the same step: GET
+the federated-query output from the LDP store by "secret key", then do one
+outer json.loads(). What differs *inside* each provider's payload (JSON vs.
+two different CSV conventions) is notebook-specific and is deliberately left
+to downstream nodes, not handled here.
+"""
+
+import json
+import logging
+
+import requests
+
+DEFAULT_BASE_URL = "https://bgv.cbgp.upm.es/DAV/home/LDP/FLAIR/{key}"
+
+# The notebooks all use this literal string as the unfilled-in placeholder
+# (some use 8 X's, some use 9 -- both show up across the 9 notebooks).
+_PLACEHOLDER_KEYS = {"XXXXXXXX", "XXXXXXXXX", ""}
+
+
+class FLAIR_LoadBySecretKey:
+    """
+    Fetches a FLAIR-GG Virtual Platform federated-query result by its secret
+    key and returns the outer-decoded {provider_url: raw_payload_string}
+    dict. Mirrors every notebook's cell 2, minus the per-provider payload
+    parsing (JSON vs. CSV), which is notebook-specific and belongs in a
+    separate downstream node.
+    """
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "key": (
+                    "STRING",
+                    {
+                        "default": "",
+                        "tooltip": "The secret key given to you by the FLAIR-GG Virtual Platform after a federated query completes.",
+                    },
+                ),
+            },
+            "optional": {
+                "base_url_template": (
+                    "STRING",
+                    {
+                        "default": DEFAULT_BASE_URL,
+                        "tooltip": "URL template with a {key} placeholder. Only change this for testing against a different LDP store.",
+                    },
+                ),
+                "timeout_seconds": (
+                    "FLOAT",
+                    {"default": 30.0, "min": 1.0, "max": 300.0, "step": 1.0},
+                ),
+            },
+        }
+
+    RETURN_TYPES = ("FLAIR_PROVIDER_DATA",)
+    RETURN_NAMES = ("provider_data",)
+    FUNCTION = "load"
+    CATEGORY = "FLAIR/loaders"
+
+    def load(self, key, base_url_template=DEFAULT_BASE_URL, timeout_seconds=30.0):
+        if key in _PLACEHOLDER_KEYS:
+            raise ValueError(
+                "No secret key provided -- fill in the 'key' field with the "
+                "secret key from your FLAIR-GG Virtual Platform federated "
+                "exploration output."
+            )
+
+        url = base_url_template.format(key=key)
+
+        try:
+            response = requests.get(url, timeout=timeout_seconds, verify=True)
+        except requests.exceptions.RequestException as exc:
+            raise RuntimeError(
+                f"Could not reach the FLAIR-GG Virtual Platform at {url}: {exc}"
+            ) from exc
+
+        if response.status_code == 404:
+            raise ValueError(
+                f"No data found for key '{key}' (HTTP 404 from {url}). "
+                "The key may be wrong, expired, or the exploration hasn't "
+                "finished writing its output yet."
+            )
+        if not response.ok:
+            raise RuntimeError(
+                f"FLAIR-GG Virtual Platform returned HTTP {response.status_code} "
+                f"for key '{key}': {response.text[:500]}"
+            )
+
+        try:
+            provider_data = json.loads(response.content)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                f"Response for key '{key}' was not valid JSON: {exc}"
+            ) from exc
+
+        if not isinstance(provider_data, dict):
+            raise RuntimeError(
+                f"Expected a {{provider: payload}} JSON object for key '{key}', "
+                f"got {type(provider_data).__name__} instead."
+            )
+
+        logging.info(
+            "[FLAIR_LoadBySecretKey] loaded %d provider(s) for key '%s'",
+            len(provider_data),
+            key,
+        )
+
+        return (provider_data,)
+
+
+NODE_CLASS_MAPPINGS = {
+    "FLAIR_LoadBySecretKey": FLAIR_LoadBySecretKey,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "FLAIR_LoadBySecretKey": "Load FLAIR-GG Data (by secret key)",
+}
