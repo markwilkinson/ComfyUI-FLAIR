@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-08-05
+
+### Added
+
+- README benefit matrix: new "Runnable over the Web" column. Galaxy,
+  LifeWatch/D4Science+NaaVRE, and this project are natively web-based;
+  Nextflow and Snakemake are CLI-first with no official web execution layer;
+  Taverna historically had this via Taverna Player + Taverna Server
+  (iframe-embeddable, but tied to the now largely-defunct BioVeL Portal, not
+  available out of the box today); KNIME only via the commercial KNIME
+  Business Hub, not the free desktop Analytics Platform most people run.
+
 ## [0.11.0] - 2026-08-05
 
 ### Added
