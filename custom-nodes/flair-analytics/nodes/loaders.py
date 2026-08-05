@@ -25,9 +25,15 @@ _PLACEHOLDER_KEYS = {"XXXXXXXX", "XXXXXXXXX", ""}
 # {provider_url: raw_CSV_string} shape a real secret-key lookup against the
 # IUCN_categorization service returns, including one empty-payload provider
 # (header only, zero rows) since that's a real case downstream nodes handle.
+# Category values use the real GBIF vocabulary URI form confirmed against a
+# live VP run (2026-08-05) -- see plots.py's category_order default, which
+# matches these same three URIs, so the whole default sample workflow
+# (this node's default -> parse -> dedupe -> plot's default) works
+# together out of the box rather than needing every widget hand-edited
+# just to try the chain once.
 _SAMPLE_PROVIDER_DATA_JSON = """{
-  "https://jbo.bgv.cbgp.upm.es/api-local/IUCN_categories": "plant_scientificName,IUCN_endangerment_category\\r\\nPapaver rhoeas,Vulnerable\\r\\nArabidopsis thaliana,Endangered\\r\\n",
-  "https://jbclm.bgv.cbgp.upm.es/api-local/IUCN_categories": "plant_scientificName,IUCN_endangerment_category\\r\\nSilene vulgaris,Critically endangered\\r\\nPapaver rhoeas,Vulnerable\\r\\n",
+  "https://jbo.bgv.cbgp.upm.es/api-local/IUCN_categories": "plant_scientificName,IUCN_endangerment_category\\r\\nPapaver rhoeas,http://rs.gbif.org/vocabulary/iucn/threat_status/VU\\r\\nArabidopsis thaliana,http://rs.gbif.org/vocabulary/iucn/threat_status/EN\\r\\n",
+  "https://jbclm.bgv.cbgp.upm.es/api-local/IUCN_categories": "plant_scientificName,IUCN_endangerment_category\\r\\nSilene vulgaris,http://rs.gbif.org/vocabulary/iucn/threat_status/CR\\r\\nPapaver rhoeas,http://rs.gbif.org/vocabulary/iucn/threat_status/VU\\r\\n",
   "https://urjc.bgv.cbgp.upm.es/api-local/IUCN_categories": "plant_scientificName,IUCN_endangerment_category\\r\\n"
 }"""
 

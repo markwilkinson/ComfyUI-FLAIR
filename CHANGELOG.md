@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-08-05
+
+### Changed
+
+- `FLAIR_PlotCategoryCounts`/`FLAIR_PlotStackedCategoryCounts`'s
+  `category_order` default and `FLAIR_ProviderDataFromText`'s sample JSON
+  now use the real GBIF vocabulary URI form confirmed against a live VP run
+  (`http://rs.gbif.org/vocabulary/iucn/threat_status/{VU,EN,CR}`) instead
+  of the source notebook's plain English category words. Verified the
+  whole default sample workflow (loader's default sample → parse → dedupe
+  → plot's default `category_order`) now works end-to-end with zero widget
+  edits, not just without erroring.
+
 ## [0.8.0] - 2026-08-05
 
 ### Added

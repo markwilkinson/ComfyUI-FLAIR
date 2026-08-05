@@ -55,8 +55,8 @@ class FLAIR_PlotCategoryCounts:
                 "category_order": (
                     "STRING",
                     {
-                        "default": "",
-                        "tooltip": "Comma-separated category order, left to right (must match the real values in the data -- e.g. IUCN categories may come through as plain words like 'Vulnerable' or as GBIF vocabulary URIs like 'http://rs.gbif.org/vocabulary/iucn/threat_status/VU' depending on the provider; check your actual data first). Leave empty for descending count order.",
+                        "default": "http://rs.gbif.org/vocabulary/iucn/threat_status/VU, http://rs.gbif.org/vocabulary/iucn/threat_status/EN, http://rs.gbif.org/vocabulary/iucn/threat_status/CR",
+                        "tooltip": "Comma-separated category order, left to right (must match the real values in the data -- the default here is the actual GBIF vocabulary URI form seen from real VP providers; some providers may instead return plain words like 'Vulnerable' -- check your actual data first). Leave empty for descending count order.",
                     },
                 ),
                 "title": ("STRING", {"default": "Distribution by Category"}),
@@ -143,8 +143,8 @@ class FLAIR_PlotStackedCategoryCounts:
                 "category_order": (
                     "STRING",
                     {
-                        "default": "",
-                        "tooltip": "Comma-separated category order (must match the real values in the data -- e.g. IUCN categories may come through as plain words or as GBIF vocabulary URIs depending on the provider; check your actual data first). Leave empty for the data's natural column order.",
+                        "default": "http://rs.gbif.org/vocabulary/iucn/threat_status/VU, http://rs.gbif.org/vocabulary/iucn/threat_status/EN, http://rs.gbif.org/vocabulary/iucn/threat_status/CR",
+                        "tooltip": "Comma-separated category order (must match the real values in the data -- the default here is the actual GBIF vocabulary URI form seen from real VP providers; some providers may instead return plain words like 'Vulnerable' -- check your actual data first). Leave empty for the data's natural column order.",
                     },
                 ),
                 "title": ("STRING", {"default": "Categories by Group"}),
