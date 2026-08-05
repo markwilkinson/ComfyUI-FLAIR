@@ -123,7 +123,11 @@ class FLAIRProvenanceCacheProvider(CacheProvider):
             "class_type": context.class_type,
             "input_hash": context.cache_key_hash,
             "outputs": [_safe_output_summary(o) for o in value.outputs],
-            "timestamp": time.time(),
+            # ISO 8601, not a raw epoch float -- schema.org/RO-Crate
+            # datetime properties (and every other consumer of this record)
+            # expect ISO, so store it that way once at the source rather
+            # than converting it separately in every place that reads it.
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
         self.store.setdefault(prompt_id, []).append(record)
         _logger.info(

@@ -5,7 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.1] - 2026-08-05
+## [0.9.0] - 2026-08-05
+
+### Added
+
+- `custom-nodes/flair-provenance/nodes/packaging.py` —
+  `FLAIR_PackageProvenanceCrate`: writes a real `ro-crate-metadata.json`
+  (RO-Crate 1.1 + Workflow Run Crate + Provenance Run Crate `conformsTo`)
+  for the current run, wired to the workflow's actual terminal output for
+  correct execution ordering. One `CreateAction` per captured node
+  execution, one `SoftwareApplication` per distinct node class, the actual
+  terminal artifact saved as a content-hashed `File` entity. Confirmed
+  ComfyUI's executor genuinely supports `async def` node functions, so this
+  node yields to the event loop a few times before reading the provenance
+  store — a real (not guaranteed, but verified-effective) mitigation for
+  the `on_store` ordering race from 0.7.0/0.8.0: tested against a real
+  4-node upstream chain, all 4 sibling records landed in the crate.
+  v1 scope, documented in `PLAN.md`: no `FormalParameter` bindings yet
+  (needs part 2), single terminal output only (multi-output resolved at
+  the design level via chaining through ComfyUI's stock `Create List` node
+  first, not yet wired up in `_save_artifact()`).
+
+### Fixed
+
+- `provider.py`: captured records stored a raw `time.time()` float instead
+  of ISO 8601 — not a schema.org/RO-Crate-compliant datetime. Fixed at the
+  source (stored as ISO 8601 once, rather than converted separately by
+  every consumer), so both `FLAIR_ShowProvenanceLog` and the crate's
+  `endTime` are correct now.
 
 ### Changed
 

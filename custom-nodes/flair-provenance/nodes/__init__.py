@@ -5,9 +5,9 @@ in _SUBMODULES below -- that's the only wiring needed for it to be picked
 up by ComfyUI.
 """
 
-from . import inspection
+from . import inspection, packaging
 
-_SUBMODULES = (inspection,)
+_SUBMODULES = (inspection, packaging)
 
 NODE_CLASS_MAPPINGS = {}
 NODE_DISPLAY_NAME_MAPPINGS = {}

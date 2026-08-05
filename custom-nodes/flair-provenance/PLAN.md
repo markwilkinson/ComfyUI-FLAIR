@@ -156,11 +156,56 @@ Verified end-to-end: ran a real 5-node chain as one prompt, then a second,
 separate prompt containing just `FLAIR_ShowProvenanceLog` → `PreviewAny`,
 and confirmed it correctly displayed all 5 records from the first prompt.
 
-## Package layout
+## `FLAIR_PackageProvenanceCrate`: built and verified, status DONE (v1 scope)
 
-Reorganized into the same `nodes/` pattern as `flair-analytics` once this
-node existed (previously just a flat `__init__.py`, since there was nothing
-but the provider registration):
+Lives in `nodes/packaging.py`. Wired to the workflow's actual terminal
+output as a genuine data input (`final_output`, type `"*"`/`IO.ANY`) --
+gets correct execution ordering for free from ComfyUI's own dependency
+scheduler, exactly per the original design. Writes a real
+`ro-crate-metadata.json` (JSON-LD, `RO-Crate 1.1` + Workflow Run Crate +
+Provenance Run Crate `conformsTo`) into `output/<crate_name>_<prompt_id>/`,
+alongside the actual saved, content-hashed terminal artifact.
+
+**The async-ordering risk flagged when this was still just a design note
+turned out to be addressable, not just a caveat to document.** This node's
+`FUNCTION` is `async def` and yields to the event loop
+(`await asyncio.sleep(0)`) a few times before reading
+`provider.store[provider.current_prompt_id]` -- confirmed ComfyUI's
+executor genuinely supports async node functions (`inspect.iscoroutinefunction`
+is checked in `execution.py`, including the case where the coroutine
+doesn't resolve immediately), so this isn't a hack. Verified against a real
+4-node upstream chain: all 4 sibling records landed correctly in the crate,
+not just some -- the mitigation works in practice, not just in theory. Still
+not a hard guarantee (hence still "v1 scope," not "solved") -- part 2's
+synchronous base-class/decorator remains the fully reliable path once built.
+
+**What v1 does and doesn't do**, deliberately not the full spec in one
+shot: one `CreateAction` per captured node execution, one
+`SoftwareApplication` per distinct node class as `instrument`, real
+`endTime` (ISO 8601), and the actual terminal artifact as a content-hashed
+`File` entity. Not yet built: real `FormalParameter` bindings from
+`INPUT_TYPES`/`RETURN_TYPES` (inputs are still just a hash, not literal
+values -- same limitation as part 1, unresolved until part 2 exists),
+native PROV-O/NanoPub storage (this writes RO-Crate JSON-LD directly, not
+as a derived export from an RDF layer -- see Format decision above),
+multi-terminal-output handling.
+
+**Multi-terminal-output resolution:** rather than building custom
+list/multi-input handling into this node, the user pointed out ComfyUI
+already ships a stock `Create List` utility node -- bundle several
+same-typed terminal outputs into one list there first, then wire that
+single list into `final_output`. `_save_artifact()` would need to iterate
+over a list to actually make use of this (not yet done -- natural small
+follow-up once someone needs it, not built speculatively ahead of need).
+
+**A real bug found and fixed while building this:** the internal record's
+`timestamp` field was a raw `time.time()` float, not ISO 8601 -- caught by
+the user asking "is that a Crate standard?" before it shipped anywhere.
+Fixed at the source in `provider.py` (stored as ISO 8601 directly, once,
+rather than converted separately by every consumer), so `FLAIR_ShowProvenanceLog`
+and the crate's `endTime` are both correct now, not just the crate.
+
+## Package layout
 
 ```text
 custom-nodes/flair-provenance/
@@ -171,6 +216,7 @@ custom-nodes/flair-provenance/
         __init__.py          # merges submodules -- register new ones in
                               # _SUBMODULES here, nothing else needed
         inspection.py          # FLAIR_ShowProvenanceLog
+        packaging.py            # FLAIR_PackageProvenanceCrate
 ```
 
 ## Status
@@ -180,9 +226,13 @@ custom-nodes/flair-provenance/
       (see the bug/fix above for what "verified" actually required).
 - [x] `FLAIR_ShowProvenanceLog` -- view captured records without digging
       through logs.
-- [ ] Base-class/decorator for literal-input capture on FLAIR-owned nodes.
-- [ ] Packaging node (accumulator -> PROV-O -> RO-Crate JSON-LD ->
-      `ro-crate-metadata.json` + `File`/`hasPart` entities).
+- [x] Packaging node -- `FLAIR_PackageProvenanceCrate`, v1 scope (see
+      above for exactly what that does and doesn't cover yet).
+- [ ] Base-class/decorator for literal-input capture on FLAIR-owned nodes
+      -- now also the path to real `FormalParameter` bindings in the crate,
+      not just literal inputs in the log.
+- [ ] Multi-terminal-output support in `_save_artifact()` (resolved at the
+      design level via stock `Create List`; not yet implemented).
 - [ ] Cache-hit provenance behavior (does a cache hit still emit a record?
       Decided in the original design discussion: yes, provenance purists
       would say so -- but `on_store` as currently used only fires on a
