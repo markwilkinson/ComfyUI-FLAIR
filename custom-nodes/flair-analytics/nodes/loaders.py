@@ -74,6 +74,12 @@ class FLAIR_LoadBySecretKey:
     CATEGORY = "FLAIR/loaders"
 
     def load(self, key, base_url_template=DEFAULT_BASE_URL, timeout_seconds=30.0):
+        # Defends against a real failure mode: pasting a key from another
+        # UI easily carries a stray leading/trailing space along with it,
+        # which silently turns into a different (nonexistent) URL rather
+        # than an obvious error.
+        key = key.strip()
+
         if key in _PLACEHOLDER_KEYS:
             raise ValueError(
                 "No secret key provided -- fill in the 'key' field with the "

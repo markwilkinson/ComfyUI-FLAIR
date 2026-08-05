@@ -55,8 +55,8 @@ class FLAIR_PlotCategoryCounts:
                 "category_order": (
                     "STRING",
                     {
-                        "default": "Vulnerable, Endangered, Critically endangered",
-                        "tooltip": "Comma-separated category order, left to right. Leave empty for descending count order.",
+                        "default": "",
+                        "tooltip": "Comma-separated category order, left to right (must match the real values in the data -- e.g. IUCN categories may come through as plain words like 'Vulnerable' or as GBIF vocabulary URIs like 'http://rs.gbif.org/vocabulary/iucn/threat_status/VU' depending on the provider; check your actual data first). Leave empty for descending count order.",
                     },
                 ),
                 "title": ("STRING", {"default": "Distribution by Category"}),
@@ -82,6 +82,15 @@ class FLAIR_PlotCategoryCounts:
             )
 
         order = [c.strip() for c in category_order.split(",") if c.strip()] or None
+        if order:
+            present = set(data[category_column].dropna())
+            missing = [c for c in order if c not in present]
+            if missing:
+                raise ValueError(
+                    f"category_order value(s) not present in the data: "
+                    f"{', '.join(missing)}. Present categories: "
+                    f"{', '.join(str(c) for c in present)}"
+                )
 
         sns.set_style("whitegrid")
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -133,7 +142,10 @@ class FLAIR_PlotStackedCategoryCounts:
             "optional": {
                 "category_order": (
                     "STRING",
-                    {"default": "Vulnerable, Endangered, Critically endangered"},
+                    {
+                        "default": "",
+                        "tooltip": "Comma-separated category order (must match the real values in the data -- e.g. IUCN categories may come through as plain words or as GBIF vocabulary URIs depending on the provider; check your actual data first). Leave empty for the data's natural column order.",
+                    },
                 ),
                 "title": ("STRING", {"default": "Categories by Group"}),
             },

@@ -5,9 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.6.0] - 2026-08-04
+## [0.7.0] - 2026-08-05
 
 ### Added
+
+- `custom-nodes/flair-provenance/` — the first piece of the FAIR/PROV-O
+  provenance capture design (the actual point of this whole project):
+  `FLAIRProvenanceCacheProvider`, registered via ComfyUI's public
+  `CacheProvider` extension point (`comfy_execution.cache_provider`).
+  Observes every node's real execution via the core executor's own
+  `on_store` hook — stock, third-party, or ours, unconditionally, no
+  per-node wiring or inheritance required — recording node identity, an
+  input fingerprint hash, and real output values. Verified live against a
+  real queued 5-node prompt, including the stock `PreviewImage` node,
+  confirming the "nodes we don't own" universal-coverage design claim
+  empirically. See `PLAN.md` in that folder for the full design, including
+  a real ordering bug found and fixed while verifying this (`on_store` is
+  dispatched as a fire-and-forget `asyncio` task with no guaranteed
+  ordering against `on_prompt_end` — confirmed by reading `caching.py`
+  directly, not assumed).
+
+### Fixed
+
+- `FLAIR_PlotCategoryCounts`/`FLAIR_PlotStackedCategoryCounts`: the
+  hardcoded default `category_order` (the source notebook's English
+  category names) broke against real VP data, which returns GBIF
+  vocabulary URIs instead — found by running the full chain against a real
+  secret key for the first time (6 providers, 447 rows). Default is now
+  empty (natural order) on both nodes rather than a baked-in vocabulary
+  assumption; `FLAIR_PlotCategoryCounts` also gained the same "fail loud on
+  a mismatched category_order" validation `FLAIR_PlotStackedCategoryCounts`
+  already had.
+- `FLAIR_LoadBySecretKey`: strips the `key` input before use — a pasted key
+  with stray leading/trailing whitespace silently became a different
+  (nonexistent) URL rather than an obvious error.
 
 - `custom-nodes/flair-analytics/nodes/loaders.py` —
   `FLAIR_ProviderDataFromText`: a testing/authoring node that parses pasted

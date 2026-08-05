@@ -203,14 +203,44 @@ text, with no live secret key needed at all. This is now the fastest way to
 test any future FLAIR-analytics node without depending on the VP being
 reachable or a key being valid.
 
-**Later:** `FLAIR_ParseJSONPayload`, and eventually the
+## Two real bugs found against live VP data (2026-08-05), fixed
+
+The user ran the full 5-node chain against a real, valid secret key
+(`3bf181a5-012a-4b52-8db6-195fde68e320`) for the first time -- 6 real
+providers, 447 real rows -- and hit two real issues neither synthetic test
+data nor the source notebook surfaced:
+
+1. **`FLAIR_PlotStackedCategoryCounts` raised, and `FLAIR_PlotCategoryCounts`
+   would have silently degraded** (empty bars, no error) -- both nodes
+   defaulted `category_order` to the notebook's hardcoded English words
+   (`"Vulnerable, Endangered, Critically endangered"`), but the real service
+   returns full GBIF vocabulary URIs instead
+   (`http://rs.gbif.org/vocabulary/iucn/threat_status/VU`). **The original
+   notebook itself would have broken against this same real data** -- this
+   isn't something we introduced, the underlying service's category
+   representation has evidently evolved since the notebook was written.
+   Fixed: default `category_order` is now empty (natural order) on both
+   nodes rather than a baked-in assumption about the vocabulary, with a
+   tooltip explaining real data may use either plain words or URIs
+   depending on the provider -- check your actual data first. Also added
+   the same "fail loud, don't silently mis-render" validation to
+   `FLAIR_PlotCategoryCounts` that `FLAIR_PlotStackedCategoryCounts` already
+   had, for consistency.
+2. **A pasted secret key with stray leading/trailing whitespace** silently
+   became a different (nonexistent) URL rather than an obvious error --
+   `FLAIR_LoadBySecretKey` now strips the key before use.
+
+Verified against the real key end-to-end after both fixes: 447 rows across
+6 providers, all 5 nodes succeed.
+
+## Later
+
+`FLAIR_ParseJSONPayload`, and eventually the
 `coordinates_by_species.ipynb` shapefile workflow as its own multi-node
 effort. `iucn_categorization.ipynb` itself is now fully ported (Nodes
-1–5 cover every real cell in it). Still outstanding: a full end-to-end
-`/prompt` queue test of `FLAIR_LoadBySecretKey` specifically against a live
-IUCN-service key (only `species_location` has been tested against the real
-network so far) -- not blocking, `FLAIR_ProviderDataFromText` covers
-everything downstream of it.
+1–5 cover every real cell in it) **and verified end-to-end against real
+live VP data** (see the two-bugs section above) -- no longer just tested
+with synthetic/sample data.
 
 ## Package layout
 
