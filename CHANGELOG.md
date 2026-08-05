@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-08-04
+
+### Added
+
+- `custom-nodes/flair-analytics/nodes/transforms.py` — `FLAIR_DeduplicateRows`,
+  the third ported node. Generic dedupe + drop-missing-values on
+  caller-specified column names, matching `iucn_categorization.ipynb` cell
+  3's cleanup step but generalized to any columns rather than hardcoded to
+  that notebook's schema. Verified against synthetic data (exact-duplicate
+  and missing-value cases); bad column names raise a clear error listing
+  the real available columns.
+
+### Fixed
+
+- Confirmed the IUCN_categorization service's "no parameters" display in
+  the FLAIR-GG VP GUI is correct, not a bug: its live OpenAPI spec shows
+  `"parameters": []` by design (a fixed SPARQL lookup, no variable
+  bindings) -- unlike `species_location`, which does take a parameter. What
+  looked like a bug during investigation was actually several
+  `*.linkeddata.systems` provider hosts being mid-migration and not yet
+  live; the corresponding `*.bgv.cbgp.upm.es` hostnames are the currently-
+  functional ones. No code change needed.
+
 ## [0.3.0] - 2026-08-04
 
 ### Added

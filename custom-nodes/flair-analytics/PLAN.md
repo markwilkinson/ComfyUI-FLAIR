@@ -126,9 +126,34 @@ providers in, 2 empty (handled cleanly), 3 real rows combined correctly.
 JSON-shaped payloads) is not yet built — next in line whenever we pick this
 back up.
 
-**Later nodes:** the notebook-specific transforms/plots (bar chart via
-Altair, etc.), and eventually the `coordinates_by_species.ipynb` shapefile
-workflow as its own multi-node effort.
+**Node 3 — `FLAIR_DeduplicateRows`: built and verified, status DONE.**
+Lives in `nodes/transforms.py`. Generic dedupe+dropna on caller-specified
+column names (comma-separated STRING input), rather than hardcoded to
+`iucn_categorization.ipynb`'s specific columns
+(`plant_scientificName`/`IUCN_endangerment_category`) -- matches cell 3's
+`drop_duplicates(subset=[...]).dropna(subset=[...])`, generalized so future
+notebooks needing the same kind of cleanup on different columns can reuse
+it. Verified against synthetic data covering both the exact-duplicate-row
+case and the missing-value case; bad column names raise a clear error
+listing the actual available columns.
+
+Confirmed real IUCN_categories column names via the live OpenAPI/SPARQL
+query behind `https://jbo.bgv.cbgp.upm.es/api-local/swagger` (2026-08-04):
+`plant_scientificName`, `IUCN_endangerment_category` -- matches the
+notebook exactly, and this service is genuinely parameterless by design
+(fixed lookup, no variable bindings in the underlying SPARQL), not a bug.
+See [[reference_flair_gg_vp_hosts]]-equivalent note: use
+`vp.bgv.cbgp.upm.es` as the canonical VP instance; some `*.linkeddata.systems`
+provider hosts are mid-migration and not all live yet as of this date.
+
+**Not yet built, next in line:** the two plot nodes (cell 4's Seaborn
+countplot, cell 5's stacked bar + summary stats) -- will need a new pattern,
+converting a matplotlib figure into ComfyUI's native `IMAGE` tensor format
+so it can feed into stock `PreviewImage`/`SaveImage` nodes.
+
+**Later:** `FLAIR_ParseJSONPayload`, and eventually the
+`coordinates_by_species.ipynb` shapefile workflow as its own multi-node
+effort.
 
 ## Package layout
 
