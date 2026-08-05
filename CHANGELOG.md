@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-08-05
+
+### Added
+
+- `workflows/IUCN Endanged Species Survey of GBs.json` committed as the
+  first real shipped workflow. The repo's `workflows/` folder had never
+  actually been git-tracked despite `docker-compose.yml`'s comment claiming
+  it was — a fresh clone would not have had the directory at all. Fixed by
+  tracking the workflow file itself, which brings the directory along.
+- README: clarified the workflow-shipping model — the repo maintainer is
+  the sole authority over what lands in the upstream `workflows/` folder
+  (via direct commit or reviewed PR); anyone else's local edits/saves stay
+  in their own fork/clone and never affect the upstream repo.
+
+### Changed
+
+- README: reworded the "Why this, instead of an existing tool?" section
+  heading and opening paragraph — ComfyUI itself is an existing, mature
+  tool, just not one used in bioinformatics; the comparison is specifically
+  against existing *bioinformatics* workflow tools.
+
 ## [0.12.0] - 2026-08-05
 
 ### Added

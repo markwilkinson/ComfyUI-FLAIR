@@ -12,9 +12,9 @@ Custom node packages live under [custom-nodes/](custom-nodes/):
 
 **Writing a new node yourself?** See [`custom-nodes/HOW_TO_CREATE_NODES.md`](custom-nodes/HOW_TO_CREATE_NODES.md) — conventions, gotchas, and testing patterns established across all the packages above, written for both a human contributor and a fresh Claude session picking this project up cold.
 
-## Why this, instead of an existing tool?
+## Why this, instead of an existing bioinformatics workflow tool?
 
-The real goal of this project isn't a nicer node-editor — it's provenance: every workflow run should automatically produce a standard, machine-readable record of what ran, with what inputs, and what came out (the [Workflow Run RO-Crate](https://www.researchobject.org/workflow-run-crate/) standard, specifically its most detailed "Provenance Run Crate" flavor — a per-step record, not just a whole-workflow black box). That's a real, useful thing to build. But several existing tools already do parts of it, and we should be upfront about which parts are genuinely new here versus which parts we're just re-doing on a smaller scale.
+The real goal of this project isn't a nicer node-editor — it's provenance: every workflow run should automatically produce a standard, machine-readable record of what ran, with what inputs, and what came out (the [Workflow Run RO-Crate](https://www.researchobject.org/workflow-run-crate/) standard, specifically its most detailed "Provenance Run Crate" flavor — a per-step record, not just a whole-workflow black box). That's a real, useful thing to build. ComfyUI itself is an existing, mature tool — just not one commonly used in bioinformatics, where it's essentially unknown outside its native image-generation community. Several *bioinformatics* workflow tools already do parts of what we're after here, though, and we should be upfront about which parts are genuinely new versus which parts we're just re-doing on a smaller scale.
 
 ### Benefit matrix
 
@@ -146,6 +146,8 @@ ComfyUI uses WebSockets for live execution progress in the graph editor, so make
 - **Custom nodes: yes, automatically.** Everything under `custom-nodes/` is a normal tracked file, nothing gitignored — a fresh clone has every FLAIR node package immediately.
 - **Workflows: yes, automatically.** `workflows/` at the repo root is a real, git-tracked directory, bind-mounted directly onto ComfyUI's actual workflow-loading path (`user/default/workflows/` — see `docker-compose.yml`). Commit a workflow's `.json` file there and it ships to every server that clones the repo from then on; anything a user saves through the UI lands there too, so it shows up as a normal reviewable `git status` change, not invisible container state.
 - **`docker/data/{models,input,output,user}`: no, deliberately not.** This is runtime state — downloaded model weights, run history, the asset-tracking SQLite DB — gitignored on purpose (`docker/data/` in `.gitignore`) and not meant to travel via git. A new server starts with these genuinely empty; nothing needs to be copied in for the system to work, since `models`/`input`/`output` are populated as you go and `user/default/workflows` specifically is now handled by the mount above instead.
+
+Because saving through the web UI writes straight into this repo's tracked `workflows/` folder, this repo's maintainer is the sole authority over which workflows actually ship — nothing lands in `workflows/*.json` in the upstream repo without going through a normal commit (or a pull request from someone else) and review. Anyone running their own deployment is free to save, edit, or delete whatever they like in their own `workflows/` folder; that's local to their fork/clone and never affects the upstream repo unless they open a PR.
 
 ## Deployment context
 
