@@ -146,14 +146,49 @@ See [[reference_flair_gg_vp_hosts]]-equivalent note: use
 `vp.bgv.cbgp.upm.es` as the canonical VP instance; some `*.linkeddata.systems`
 provider hosts are mid-migration and not all live yet as of this date.
 
-**Not yet built, next in line:** the two plot nodes (cell 4's Seaborn
-countplot, cell 5's stacked bar + summary stats) -- will need a new pattern,
-converting a matplotlib figure into ComfyUI's native `IMAGE` tensor format
-so it can feed into stock `PreviewImage`/`SaveImage` nodes.
+**Nodes 4 & 5 — `FLAIR_PlotCategoryCounts` + `FLAIR_PlotStackedCategoryCounts`:
+built and verified, status DONE.** Lives in `nodes/plots.py`, along with a
+shared (non-node) `_figure_to_image_tensor()` helper: renders a matplotlib
+`Figure` to PNG in memory, loads via PIL, converts to the exact tensor shape
+`nodes.LoadImage` produces (`float32`, `[0, 1]`, `(1, H, W, 3)`) so plot
+output feeds straight into stock `PreviewImage`/`SaveImage`. `matplotlib`
+needs `matplotlib.use("Agg")` set before `pyplot` is imported -- no display
+in a server/container context, would otherwise error trying to open a GUI
+backend.
+
+Both nodes generalize their notebook cell rather than hardcoding IUCN's
+column names -- `category_column`/`group_column`/`category_order` are all
+caller-specified STRING inputs (defaulting to this notebook's actual values
+for convenience), so other notebooks with the same "count/stack rows by
+category" shape can reuse them:
+
+- `FLAIR_PlotCategoryCounts` (cell 4): countplot of one category column.
+  Uses `hue=category_column, legend=False` rather than bare `palette=`,
+  which is the current seaborn-approved way to get a per-bar palette
+  without triggering seaborn's "palette without hue" deprecation warning.
+- `FLAIR_PlotStackedCategoryCounts` (cell 5): stacked bar of a category
+  column grouped by a second column, plus a second `STRING` output
+  carrying the category-counts/group-counts summary text the notebook
+  printed to stdout -- treated as real output worth keeping, not debug
+  logging.
+
+Verified against synthetic data matching the real IUCN schema
+(`plant_scientificName`/`IUCN_endangerment_category`/`provider_host`):
+correct tensor shape/dtype/range, and both PNGs visually inspected (correct
+viridis coloring, category order, stacking, rotated x-labels, legend).
+
+`matplotlib`/`seaborn` are new FLAIR node dependencies -- added to
+`docker/Dockerfile`'s "FLAIR node dependencies" step (alongside `pandas`
+from Node 2) and the venv, per the gotcha noted there. This is the third
+time a new node has needed a Python package ComfyUI doesn't ship
+(`requests` was the only one that happened to already be present) --
+worth assuming by default that a new node needs *something* not yet
+installed, and checking early rather than late.
 
 **Later:** `FLAIR_ParseJSONPayload`, and eventually the
 `coordinates_by_species.ipynb` shapefile workflow as its own multi-node
-effort.
+effort. `iucn_categorization.ipynb` itself is now fully ported (Nodes
+1–5 cover every real cell in it).
 
 ## Package layout
 

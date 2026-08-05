@@ -59,7 +59,9 @@ RUN pip uninstall -y \
 # require adding it here and rebuilding the image. Keep this list in sync
 # with what the nodes under ../custom-nodes/*/nodes/*.py actually import.
 RUN pip install --no-cache-dir \
-        pandas
+        pandas \
+        matplotlib \
+        seaborn
 
 # Data directories that get bind-mounted over at runtime. Creating them here
 # means a fresh container has correct empty dirs even before any volume is

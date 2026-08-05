@@ -5,9 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.4.0] - 2026-08-04
+## [0.5.0] - 2026-08-04
 
 ### Added
+
+- `custom-nodes/flair-analytics/nodes/plots.py` — `FLAIR_PlotCategoryCounts`
+  and `FLAIR_PlotStackedCategoryCounts`, the fourth and fifth ported nodes,
+  completing `iucn_categorization.ipynb`'s full port (cells 4 and 5: a
+  Seaborn countplot and a stacked bar plot by provider, plus the
+  category/group summary counts the notebook printed to stdout, now a real
+  `STRING` output). Both take caller-specified column names rather than
+  hardcoding IUCN's schema, so other notebooks with the same
+  count/stack-by-category shape can reuse them. Includes a shared
+  `_figure_to_image_tensor()` helper converting a matplotlib `Figure` into
+  ComfyUI's native `IMAGE` tensor format, so plots feed straight into stock
+  `PreviewImage`/`SaveImage`. Verified against synthetic data matching the
+  real IUCN schema; output tensors and rendered PNGs visually inspected.
+
+### Fixed
+
+- `docker/Dockerfile`: added `matplotlib`/`seaborn` to the "FLAIR node
+  dependencies" step (same gotcha as `pandas` in 0.3.0) -- neither is a
+  ComfyUI dependency.
 
 - `custom-nodes/flair-analytics/nodes/transforms.py` — `FLAIR_DeduplicateRows`,
   the third ported node. Generic dedupe + drop-missing-values on
