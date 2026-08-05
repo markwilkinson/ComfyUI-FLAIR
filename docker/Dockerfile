@@ -52,6 +52,15 @@ RUN pip uninstall -y \
         comfyui-workflow-templates-media-assets-01 \
     || true
 
+# FLAIR node dependencies. custom_nodes/ itself is bind-mounted at runtime
+# (see docker-compose.yml), not baked into the image, so the Dockerfile has
+# no way to discover what a given node needs automatically -- unlike a code
+# change under custom-nodes/, adding a new import to a FLAIR node DOES
+# require adding it here and rebuilding the image. Keep this list in sync
+# with what the nodes under ../custom-nodes/*/nodes/*.py actually import.
+RUN pip install --no-cache-dir \
+        pandas
+
 # Data directories that get bind-mounted over at runtime. Creating them here
 # means a fresh container has correct empty dirs even before any volume is
 # attached (e.g. `docker run` without compose).

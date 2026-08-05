@@ -107,15 +107,61 @@ below for what was actually decided/verified, not just proposed).
   about as simple a case as we'll get for testing that the capture wrapper
   records inputs/outputs correctly, before wiring it into more nodes.
 
-**Node 2 (next session, not yet): a per-payload-shape parser**, likely split
-into `FLAIR_ParseJSONPayload` and `FLAIR_ParseCSVPayload` rather than one
-node per notebook, since the real variation between notebooks is which of
-these two shapes they expect, not anything else. Exact split still to be
-confirmed once Node 1 exists and we can test it against a real payload.
+**Node 2 — `FLAIR_ParseCSVPayload`: built and verified, status DONE.**
+Lives in `custom-nodes/flair-analytics/nodes/parsers.py`. Takes the
+`FLAIR_PROVIDER_DATA` dict from Node 1, parses each provider's CSV payload
+via `pandas.read_csv`, tags each row with `provider_url` + `provider_host`
+(the latter matching the notebooks' `url.split('/')[2]` extraction), and
+concatenates into one combined `DATAFRAME`-typed output. Deliberately does
+no schema-specific cleanup (column-subset deduplication, dropping rows
+missing particular fields) since that varies per service and belongs
+downstream. A provider returning zero data rows (header only) contributes
+nothing without erroring; a provider whose payload isn't valid CSV is
+skipped with a warning rather than failing the whole batch. Verified against
+the same live key used for Node 1
+(`708aba31-b0c3-45be-a04e-546fe674d460`, species-location service): 5
+providers in, 2 empty (handled cleanly), 3 real rows combined correctly.
+
+`FLAIR_ParseJSONPayload` (for `driada.ipynb` and the two Beacon2 notebooks'
+JSON-shaped payloads) is not yet built — next in line whenever we pick this
+back up.
 
 **Later nodes:** the notebook-specific transforms/plots (bar chart via
 Altair, etc.), and eventually the `coordinates_by_species.ipynb` shapefile
 workflow as its own multi-node effort.
+
+## Package layout
+
+As of Node 2, `custom-nodes/flair-analytics/` is organized by node category
+rather than one flat `nodes.py`, since more categories (parsers, transforms,
+plots, eventually coordinate-harmonization and shapefile nodes) were always
+expected:
+
+```text
+custom-nodes/flair-analytics/
+    __init__.py          # from .nodes import NODE_CLASS_MAPPINGS, ...
+    nodes/
+        __init__.py       # merges each submodule's mappings -- register new
+                           # submodules in _SUBMODULES here, nothing else needed
+        loaders.py         # FLAIR_LoadBySecretKey
+        parsers.py          # FLAIR_ParseCSVPayload (FLAIR_ParseJSONPayload next)
+    PLAN.md
+```
+
+Adding a new node category = add a new file under `nodes/`, define its own
+`NODE_CLASS_MAPPINGS`/`NODE_DISPLAY_NAME_MAPPINGS` at the bottom like the
+existing ones, and add it to `_SUBMODULES` in `nodes/__init__.py`.
+
+**Gotcha hit building this:** a new FLAIR node's Python import (`pandas`,
+for the CSV parser) is a real new dependency that isn't part of ComfyUI's
+own `requirements.txt`, and `custom_nodes/` itself is bind-mounted at
+runtime rather than baked into the Docker image -- so the Dockerfile can't
+discover a new node's imports automatically the way it discovers new node
+*code* for free. New Python dependencies need an explicit `pip install` line
+added to `docker/Dockerfile` (and the venv, for local testing) and an image
+rebuild, same as any other Python project — this is a real, expected
+exception to "no rebuild needed for node changes," not a bug in the
+mount-the-whole-directory approach itself.
 
 ## Decisions made building Node 1 (were open questions, now resolved)
 

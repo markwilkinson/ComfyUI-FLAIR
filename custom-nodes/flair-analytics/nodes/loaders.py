@@ -1,13 +1,13 @@
 """
-FLAIR-GG analytics nodes -- ports of the FLAIR-GG-Analytics Jupyter notebooks
-(read-only reference at ../../../FLAIR-GG-Analytics/content/FLAIR-GG/) into
-ComfyUI nodes. See PLAN.md in this folder for the overall porting strategy.
+Loader nodes -- ports of the FLAIR-GG-Analytics Jupyter notebooks (read-only
+reference at ../../../../FLAIR-GG-Analytics/content/FLAIR-GG/) into ComfyUI
+nodes. See ../PLAN.md for the overall porting strategy.
 
 Every one of the 9 real analytics notebooks starts with the same step: GET
 the federated-query output from the LDP store by "secret key", then do one
 outer json.loads(). What differs *inside* each provider's payload (JSON vs.
 two different CSV conventions) is notebook-specific and is deliberately left
-to downstream nodes, not handled here.
+to the parser nodes (see parsers.py), not handled here.
 """
 
 import json

@@ -6,6 +6,7 @@ This repo (`ComfyUI-FLAIR`) holds FLAIR-specific custom nodes, workflows, and de
 Custom node packages live under [custom-nodes/](custom-nodes/):
 
 - `flair_declutter` — hides Stable-Diffusion/diffusion-model nodes from the ComfyUI picker at runtime (no core files patched — see the docstring in [`custom-nodes/flair_declutter/__init__.py`](custom-nodes/flair_declutter/__init__.py) for the exact mechanism).
+- `flair-analytics` — ports of the [FLAIR-GG-Analytics](https://github.com/wilkinsonlab/FLAIR-GG-Analytics) Jupyter notebooks into ComfyUI nodes, one node at a time. See [`custom-nodes/flair-analytics/PLAN.md`](custom-nodes/flair-analytics/PLAN.md) for the porting strategy and package layout (organized by node category under `nodes/`, not one flat file).
 - `useless_text` — throwaway 4-node demo used to learn the ComfyUI custom-node interface. Not part of the real project.
 
 ## Why this, instead of an existing tool?
@@ -107,7 +108,7 @@ curl http://127.0.0.1:8188/
 
 The container publishes port 8188 bound to `127.0.0.1` only (not exposed to the outside network directly) — see "Reverse proxy" below.
 
-**Adding a new FLAIR custom-node package:** just create the folder under `custom-nodes/` — the whole directory is mounted as one, so it appears automatically on the next container restart (`docker compose up -d`, no rebuild). No `docker-compose.yml` or Dockerfile changes needed.
+**Adding a new FLAIR custom-node package:** just create the folder under `custom-nodes/` — the whole directory is mounted as one, so it appears automatically on the next container restart (`docker compose up -d`, no rebuild). No `docker-compose.yml` or Dockerfile changes needed — **unless the node imports a new Python package** ComfyUI doesn't already ship (e.g. `pandas`, added for `flair-analytics`'s CSV parsing). `custom_nodes/` is mounted, not baked in, so the Dockerfile has no way to discover a new import automatically; add a `pip install` line to `docker/Dockerfile`'s "FLAIR node dependencies" step and rebuild (`docker compose build`).
 
 **Bumping the pinned ComfyUI version:** edit `COMFYUI_REF` (a commit hash) at the top of `docker/Dockerfile`, then `docker compose build`.
 

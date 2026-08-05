@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-08-04
+
+### Added
+
+- `custom-nodes/flair-analytics/nodes/parsers.py` — `FLAIR_ParseCSVPayload`,
+  the second ported node. Parses each provider's CSV payload from
+  `FLAIR_LoadBySecretKey`'s output via `pandas.read_csv`, tags each row with
+  `provider_url`/`provider_host`, and concatenates into one combined
+  `DATAFRAME`-typed output. Zero-row providers (header only) contribute
+  nothing without erroring; a provider whose payload isn't valid CSV is
+  skipped with a warning rather than failing the whole batch. Verified
+  end-to-end through the real container queue against a live secret key
+  (`708aba31-b0c3-45be-a04e-546fe674d460`, species-location service): 5
+  providers in, 2 empty handled cleanly, 3 rows combined correctly.
+
+### Changed
+
+- `custom-nodes/flair-analytics/` reorganized from a single flat `nodes.py`
+  into a `nodes/` package split by category (`loaders.py`, `parsers.py`),
+  merged via `nodes/__init__.py`. Adding a new category is now: new file
+  under `nodes/`, register it in `nodes/__init__.py`'s `_SUBMODULES` tuple.
+
+### Fixed
+
+- `docker/Dockerfile`: added a "FLAIR node dependencies" `pip install`
+  step (starting with `pandas`, needed by the new CSV parser). New Python
+  imports in a FLAIR node are a real exception to "no rebuild needed" --
+  `custom_nodes/` is bind-mounted, not baked into the image, so the
+  Dockerfile has no way to discover a node's new imports automatically the
+  way it discovers new node *code* for free. Documented in README.md.
+
 ## [0.2.2] - 2026-08-03
 
 ### Changed
