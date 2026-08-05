@@ -21,6 +21,16 @@ DEFAULT_BASE_URL = "https://bgv.cbgp.upm.es/DAV/home/LDP/FLAIR/{key}"
 # (some use 8 X's, some use 9 -- both show up across the 9 notebooks).
 _PLACEHOLDER_KEYS = {"XXXXXXXX", "XXXXXXXXX", ""}
 
+# Sample data for FLAIR_ProviderDataFromText's default widget value -- same
+# {provider_url: raw_CSV_string} shape a real secret-key lookup against the
+# IUCN_categorization service returns, including one empty-payload provider
+# (header only, zero rows) since that's a real case downstream nodes handle.
+_SAMPLE_PROVIDER_DATA_JSON = """{
+  "https://jbo.bgv.cbgp.upm.es/api-local/IUCN_categories": "plant_scientificName,IUCN_endangerment_category\\r\\nPapaver rhoeas,Vulnerable\\r\\nArabidopsis thaliana,Endangered\\r\\n",
+  "https://jbclm.bgv.cbgp.upm.es/api-local/IUCN_categories": "plant_scientificName,IUCN_endangerment_category\\r\\nSilene vulgaris,Critically endangered\\r\\nPapaver rhoeas,Vulnerable\\r\\n",
+  "https://urjc.bgv.cbgp.upm.es/api-local/IUCN_categories": "plant_scientificName,IUCN_endangerment_category\\r\\n"
+}"""
+
 
 class FLAIR_LoadBySecretKey:
     """
@@ -114,10 +124,71 @@ class FLAIR_LoadBySecretKey:
         return (provider_data,)
 
 
+class FLAIR_ProviderDataFromText:
+    """
+    Alternative to FLAIR_LoadBySecretKey with no network call: parses
+    pasted JSON in the same {provider_url: raw_payload_string} shape a real
+    secret-key lookup returns. Useful for testing downstream nodes
+    (parsers/transforms/plots) against known sample data without a live
+    key, or for working with provider data that didn't come from a
+    secret-key lookup at all -- e.g. copied in from somewhere else. The
+    default widget value is a working sample against the IUCN_categorization
+    schema, so dropping this node in already has something to run.
+    """
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "json_text": (
+                    "STRING",
+                    {
+                        "default": _SAMPLE_PROVIDER_DATA_JSON,
+                        "multiline": True,
+                        "tooltip": "A {provider_url: raw_payload_string} JSON object, same shape FLAIR_LoadBySecretKey returns.",
+                    },
+                ),
+            },
+        }
+
+    RETURN_TYPES = ("FLAIR_PROVIDER_DATA",)
+    RETURN_NAMES = ("provider_data",)
+    FUNCTION = "load"
+    CATEGORY = "FLAIR/loaders"
+
+    def load(self, json_text):
+        if not json_text or not json_text.strip():
+            raise ValueError(
+                "No JSON provided -- paste a {provider_url: raw_payload_string} "
+                "JSON object into this node (see the default value for the "
+                "expected shape)."
+            )
+
+        try:
+            provider_data = json.loads(json_text)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Not valid JSON: {exc}") from exc
+
+        if not isinstance(provider_data, dict):
+            raise ValueError(
+                f"Expected a {{provider: payload}} JSON object, got "
+                f"{type(provider_data).__name__} instead."
+            )
+
+        logging.info(
+            "[FLAIR_ProviderDataFromText] loaded %d provider(s) from pasted text",
+            len(provider_data),
+        )
+
+        return (provider_data,)
+
+
 NODE_CLASS_MAPPINGS = {
     "FLAIR_LoadBySecretKey": FLAIR_LoadBySecretKey,
+    "FLAIR_ProviderDataFromText": FLAIR_ProviderDataFromText,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "FLAIR_LoadBySecretKey": "Load FLAIR-GG Data (by secret key)",
+    "FLAIR_ProviderDataFromText": "Load FLAIR-GG Data (paste JSON)",
 }

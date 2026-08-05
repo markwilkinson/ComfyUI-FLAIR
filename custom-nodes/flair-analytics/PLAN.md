@@ -185,10 +185,32 @@ time a new node has needed a Python package ComfyUI doesn't ship
 worth assuming by default that a new node needs *something* not yet
 installed, and checking early rather than late.
 
+**Testing utility — `FLAIR_ProviderDataFromText`: built and verified, status
+DONE.** Lives in `nodes/loaders.py` alongside `FLAIR_LoadBySecretKey`, same
+`FLAIR_PROVIDER_DATA` output type. Not a notebook port -- a
+user-requested testing/authoring tool: paste a `{provider_url:
+raw_payload_string}` JSON object (same shape the real secret-key lookup
+returns) into a multiline text widget, no network call. Needed because a
+plain stock text node can't substitute for `FLAIR_LoadBySecretKey` in the
+graph -- ComfyUI's type system blocks wiring a `STRING` output into a
+`FLAIR_PROVIDER_DATA` input, so pasted sample JSON had nowhere to plug in
+without a node that actually declares the right output type. The widget's
+default value is a working sample against the IUCN schema (including one
+empty-payload provider, to exercise that case) -- verified end-to-end
+through the full chain (`FLAIR_ProviderDataFromText` → `FLAIR_ParseCSVPayload`
+→ `FLAIR_DeduplicateRows` → `FLAIR_PlotCategoryCounts`) using that default
+text, with no live secret key needed at all. This is now the fastest way to
+test any future FLAIR-analytics node without depending on the VP being
+reachable or a key being valid.
+
 **Later:** `FLAIR_ParseJSONPayload`, and eventually the
 `coordinates_by_species.ipynb` shapefile workflow as its own multi-node
 effort. `iucn_categorization.ipynb` itself is now fully ported (Nodes
-1–5 cover every real cell in it).
+1–5 cover every real cell in it). Still outstanding: a full end-to-end
+`/prompt` queue test of `FLAIR_LoadBySecretKey` specifically against a live
+IUCN-service key (only `species_location` has been tested against the real
+network so far) -- not blocking, `FLAIR_ProviderDataFromText` covers
+everything downstream of it.
 
 ## Package layout
 

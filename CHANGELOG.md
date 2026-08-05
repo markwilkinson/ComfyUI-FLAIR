@@ -5,9 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.5.0] - 2026-08-04
+## [0.6.0] - 2026-08-04
 
 ### Added
+
+- `custom-nodes/flair-analytics/nodes/loaders.py` —
+  `FLAIR_ProviderDataFromText`: a testing/authoring node that parses pasted
+  `{provider_url: raw_payload_string}` JSON (no network call) into the same
+  `FLAIR_PROVIDER_DATA` type `FLAIR_LoadBySecretKey` produces. Requested so
+  sample/copied data can be tested against the downstream nodes without a
+  live secret key -- a plain stock text node can't substitute for the real
+  loader here, since ComfyUI's type system blocks wiring `STRING` into a
+  `FLAIR_PROVIDER_DATA` socket. Default widget value is a working sample
+  against the real IUCN schema. Verified end-to-end through the full chain
+  (this node → `FLAIR_ParseCSVPayload` → `FLAIR_DeduplicateRows` →
+  `FLAIR_PlotCategoryCounts`) using that default text.
 
 - `custom-nodes/flair-analytics/nodes/plots.py` — `FLAIR_PlotCategoryCounts`
   and `FLAIR_PlotStackedCategoryCounts`, the fourth and fifth ported nodes,
