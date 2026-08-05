@@ -5,9 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.0] - 2026-08-05
+## [0.8.0] - 2026-08-05
 
 ### Added
+
+- `custom-nodes/flair-provenance/nodes/inspection.py` —
+  `FLAIR_ShowProvenanceLog`: view what `FLAIRProvenanceCacheProvider` has
+  captured, formatted as readable JSON, without digging through container
+  logs. Defaults to showing the last *completed* prompt's records (more
+  reliable than the still-in-progress current one, per the async-ordering
+  caveat added in 0.7.0). Has no required inputs by design (reads global
+  provenance state, not upstream node output), documented directly in the
+  node so that's not a silent surprise.
+- `flair-provenance/` reorganized into the same `nodes/` package pattern as
+  `flair-analytics` (`provider.py` + `nodes/inspection.py`), now that it
+  has more than just the provider registration.
+
+### Fixed
+
+- `provider.py`: a completed prompt's records were previously discarded
+  after just logging a count, leaving nothing for `FLAIR_ShowProvenanceLog`
+  to show. Now retained as `last_completed_prompt_id`/`last_completed_records`.
+- `_safe_output_summary()`: was describing ComfyUI's per-output-slot
+  batch-list wrapper instead of the real value inside it, so every summary
+  read the unhelpful `"list(len=1)"` regardless of what a node actually
+  produced. Unwraps single-item lists first now.
 
 - `custom-nodes/flair-provenance/` — the first piece of the FAIR/PROV-O
   provenance capture design (the actual point of this whole project):

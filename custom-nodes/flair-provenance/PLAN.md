@@ -125,11 +125,61 @@ task) becomes the reliable path for anything the packaging node itself
 needs to depend on having, with the `CacheProvider` observer staying the
 best-effort fallback for non-owned nodes specifically.
 
+## `FLAIR_ShowProvenanceLog`: built and verified, status DONE
+
+User-requested: "is there any way to view what is currently being
+captured?" Lives in `nodes/inspection.py`. Reads `provider.store` (and the
+new `provider.last_completed_prompt_id`/`last_completed_records`, added to
+`provider.py` specifically to support this -- previously a sweep just
+logged a count and discarded the actual records, so there was nothing
+retained to show) and formats it as indented JSON for display via a stock
+`PreviewAny`/`Show Text` node.
+
+Has no required inputs by design: it reads global process state, not
+anything computed from a particular upstream node, so ComfyUI's dependency
+scheduler has nothing to order it against. Documented directly in the
+node's docstring/tooltip rather than treated as a hidden gotcha: to inspect
+a specific run, run that workflow first, then queue this node separately
+afterward. Defaults to `which="last_completed"` over `"current"` because a
+still-in-progress prompt's records aren't guaranteed complete yet (same
+async-ordering reason as above) -- `"last_completed"` only becomes
+available once the *next* prompt has started, by which point the previous
+one's stragglers have landed.
+
+Also fixed while building this: `_safe_output_summary()` was unwrapping
+ComfyUI's per-output-slot batch-list incorrectly, so every summary read the
+unhelpful `"list(len=1)"` regardless of the real value inside. Now unwraps
+single-item lists first, giving genuinely useful summaries (`"dict(len=2)"`,
+`"DataFrame(shape=(2, 4))"`, `"Tensor(shape=(1, 553, 850, 3))"`).
+
+Verified end-to-end: ran a real 5-node chain as one prompt, then a second,
+separate prompt containing just `FLAIR_ShowProvenanceLog` → `PreviewAny`,
+and confirmed it correctly displayed all 5 records from the first prompt.
+
+## Package layout
+
+Reorganized into the same `nodes/` pattern as `flair-analytics` once this
+node existed (previously just a flat `__init__.py`, since there was nothing
+but the provider registration):
+
+```text
+custom-nodes/flair-provenance/
+    __init__.py          # imports provider.py (registration side effect)
+                          # + nodes/ (NODE_CLASS_MAPPINGS)
+    provider.py            # FLAIRProvenanceCacheProvider + singleton
+    nodes/
+        __init__.py          # merges submodules -- register new ones in
+                              # _SUBMODULES here, nothing else needed
+        inspection.py          # FLAIR_ShowProvenanceLog
+```
+
 ## Status
 
 - [x] `FLAIRProvenanceCacheProvider` registered, observes every node
       execution via `on_store`, verified live against a real queued prompt
       (see the bug/fix above for what "verified" actually required).
+- [x] `FLAIR_ShowProvenanceLog` -- view captured records without digging
+      through logs.
 - [ ] Base-class/decorator for literal-input capture on FLAIR-owned nodes.
 - [ ] Packaging node (accumulator -> PROV-O -> RO-Crate JSON-LD ->
       `ro-crate-metadata.json` + `File`/`hasPart` entities).
