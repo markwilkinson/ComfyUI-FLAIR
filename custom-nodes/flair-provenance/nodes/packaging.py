@@ -3,22 +3,23 @@ The packaging node: turns what FLAIRProvenanceCacheProvider has captured
 for the current run into a Workflow Run RO-Crate. See ../PLAN.md.
 
 v1 scope, deliberately not the full spec in one shot (matching how every
-other FLAIR node started simple and iterated): one real terminal output
-saved as a File entity, one CreateAction per captured node execution, one
+other FLAIR node started simple and iterated): real terminal output(s)
+saved as File entities, one CreateAction per captured node execution, one
 SoftwareApplication per distinct node class acting as `instrument`. Not yet
-built: full FormalParameter bindings from INPUT_TYPES/RETURN_TYPES,
-multi-terminal-output support, native PROV-O/NanoPub storage (see PLAN.md's
-Format decision) -- this writes RO-Crate JSON-LD directly as the working
-format, not as a derived export from an RDF layer that doesn't exist yet.
+built: full FormalParameter bindings from INPUT_TYPES/RETURN_TYPES, native
+PROV-O/NanoPub storage (see PLAN.md's Format decision) -- this writes
+RO-Crate JSON-LD directly as the working format, not as a derived export
+from an RDF layer that doesn't exist yet.
 """
 
 import asyncio
 import hashlib
-import io
 import json
 import logging
 import os
+import shutil
 import time
+import urllib.parse
 
 import folder_paths
 
@@ -27,13 +28,15 @@ from ..provider import provider
 _logger = logging.getLogger(__name__)
 
 RO_CRATE_CONTEXT = "https://w3id.org/ro/crate/1.1/context"
+CRATE_SUBFOLDER = "flair_crates"
+RETENTION_SECONDS = 7 * 24 * 60 * 60
 WORKFLOW_RUN_PROFILE = "https://w3id.org/ro/wfrun/process/0.5"
 PROVENANCE_RUN_PROFILE = "https://w3id.org/ro/wfrun/provenance/0.5"
 
 
 def _save_artifact(value, directory, base_name):
     """
-    Saves a node output value as a real file, returning (filename,
+    Saves a single node output value as a real file, returning (filename,
     encoding_format). Handles the shapes FLAIR nodes actually produce
     today (an IMAGE tensor, a pandas DataFrame); anything else falls back
     to a text repr so packaging never hard-fails on an unrecognized type --
@@ -73,12 +76,53 @@ def _sha256_of_file(path):
     return digest.hexdigest()
 
 
+def _sweep_old_crates(crates_dir):
+    """
+    Deletes any crate zip older than RETENTION_SECONDS. Simpler than a
+    delete-after-download route (which would need its own aiohttp route
+    with deferred registration, since PromptServer.instance isn't
+    available at package-import time -- see PLAN.md) and, per the user,
+    "basically solves the problem": don't retain people's results
+    indefinitely, without needing to detect a completed download. Scoped
+    to CRATE_SUBFOLDER specifically, never the wider output/ tree, so a
+    bug here can't delete something unrelated a user saved.
+    """
+    now = time.time()
+    try:
+        entries = os.listdir(crates_dir)
+    except FileNotFoundError:
+        return
+
+    for name in entries:
+        if not name.endswith(".zip"):
+            continue
+        path = os.path.join(crates_dir, name)
+        try:
+            age = now - os.path.getmtime(path)
+            if age > RETENTION_SECONDS:
+                os.remove(path)
+                _logger.info(
+                    "[FLAIR provenance] deleted crate older than %d day(s): %s",
+                    RETENTION_SECONDS // 86400,
+                    name,
+                )
+        except OSError as exc:
+            _logger.warning("[FLAIR provenance] couldn't sweep %s: %s", path, exc)
+
+
 class FLAIR_PackageProvenanceCrate:
     """
-    Wired to the workflow's actual terminal output as a genuine data input
-    (not a synthetic provenance pin) -- gets correct execution ordering for
-    free from ComfyUI's own dependency scheduler, since it only runs after
-    everything it depends on is done.
+    Wired to the workflow's actual terminal output(s) as a genuine data
+    input (not a synthetic provenance pin) -- gets correct execution
+    ordering for free from ComfyUI's own dependency scheduler, since it
+    only runs after everything it depends on is done.
+
+    Accepts multiple terminal outputs: set INPUT_IS_LIST = True and pair
+    with the stock `Create List` node upstream (bundle several same-typed
+    outputs into one list there first, then wire that into final_output
+    here). INPUT_IS_LIST also means a single directly-wired output arrives
+    as a length-1 list -- every input is a list either way, so there's one
+    code path instead of two.
 
     Reads FLAIRProvenanceCacheProvider's store for the CURRENT prompt (not
     "last_completed" -- this node IS part of the run it's packaging).
@@ -90,7 +134,26 @@ class FLAIR_PackageProvenanceCrate:
     those background tasks a real chance to finish first. The crate records
     how many executions it actually captured so this is never silently
     incomplete.
+
+    The crate is zipped into a single file under output/flair_crates/
+    rather than left as a loose folder -- both because RO-Crates are
+    conventionally distributed that way, and because it's what makes the
+    crate downloadable at all: ComfyUI's own /view endpoint already serves
+    any file type from output/ generically (checked directly in server.py,
+    not assumed), so a single zip gets a real, working download URL for
+    free -- no new server route needed, no shared filesystem with the VP
+    needed either.
+
+    Crates older than a week are swept (deleted) each time a new one is
+    written, scoped to output/flair_crates/ specifically -- the user didn't
+    want results retained on the server indefinitely, and this is simpler
+    than a real delete-after-download route (which would need its own
+    aiohttp route with deferred registration, since PromptServer.instance
+    isn't ready at package-import time -- see PLAN.md) while still solving
+    the actual concern.
     """
+
+    INPUT_IS_LIST = True
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -104,12 +167,16 @@ class FLAIR_PackageProvenanceCrate:
         }
 
     RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("crate_path",)
+    RETURN_NAMES = ("crate_url",)
     FUNCTION = "package"
     OUTPUT_NODE = True
     CATEGORY = "FLAIR/provenance"
 
-    async def package(self, final_output, crate_name="flair-run"):
+    async def package(self, final_output, crate_name=("flair-run",)):
+        # INPUT_IS_LIST wraps every input, including plain widgets -- take
+        # the first (only) crate_name value regardless of how it arrived.
+        crate_name = crate_name[0] if crate_name else "flair-run"
+
         # Let pending on_store tasks for sibling nodes flush before we read
         # the store -- see class docstring. Not a guarantee, just improves
         # the odds substantially; asyncio.sleep(0) yields once, a few
@@ -120,44 +187,58 @@ class FLAIR_PackageProvenanceCrate:
         prompt_id = provider.current_prompt_id
         records = list(provider.store.get(prompt_id, [])) if prompt_id else []
 
-        crate_dir = os.path.join(
-            folder_paths.get_output_directory(), f"{crate_name}_{prompt_id or 'unknown'}"
-        )
-        os.makedirs(crate_dir, exist_ok=True)
+        crates_dir = os.path.join(folder_paths.get_output_directory(), CRATE_SUBFOLDER)
+        os.makedirs(crates_dir, exist_ok=True)
+        _sweep_old_crates(crates_dir)
 
-        artifact_name, encoding_format = _save_artifact(
-            final_output, crate_dir, "final_output"
-        )
-        artifact_path = os.path.join(crate_dir, artifact_name)
-        artifact_hash = _sha256_of_file(artifact_path)
-        artifact_size = os.path.getsize(artifact_path)
+        work_dir = os.path.join(crates_dir, f"{crate_name}_{prompt_id or 'unknown'}")
+        os.makedirs(work_dir, exist_ok=True)
 
-        graph = self._build_graph(
-            records=records,
-            artifact_name=artifact_name,
-            artifact_hash=artifact_hash,
-            artifact_size=artifact_size,
-            encoding_format=encoding_format,
-        )
+        artifacts = []
+        for i, item in enumerate(final_output):
+            suffix = "" if len(final_output) == 1 else f"_{i}"
+            filename, encoding_format = _save_artifact(item, work_dir, f"final_output{suffix}")
+            path = os.path.join(work_dir, filename)
+            artifacts.append(
+                {
+                    "filename": filename,
+                    "encoding_format": encoding_format,
+                    "sha256": _sha256_of_file(path),
+                    "size": os.path.getsize(path),
+                }
+            )
 
+        graph = self._build_graph(records=records, artifacts=artifacts)
         crate = {"@context": RO_CRATE_CONTEXT, "@graph": graph}
-        metadata_path = os.path.join(crate_dir, "ro-crate-metadata.json")
-        with open(metadata_path, "w") as f:
+        with open(os.path.join(work_dir, "ro-crate-metadata.json"), "w") as f:
             json.dump(crate, f, indent=2)
 
+        zip_path = shutil.make_archive(work_dir, "zip", work_dir)
+        shutil.rmtree(work_dir)
+        zip_filename = os.path.basename(zip_path)
+
+        crate_url = (
+            "/view?filename=" + urllib.parse.quote(zip_filename)
+            + "&subfolder=" + urllib.parse.quote(CRATE_SUBFOLDER)
+            + "&type=output"
+        )
+
         _logger.info(
-            "[FLAIR provenance] packaged crate at %s: %d node execution(s) captured "
-            "for prompt %s (some upstream nodes may be missing if their "
-            "provenance hadn't landed yet -- see this node's docstring)",
-            crate_dir,
+            "[FLAIR provenance] packaged crate at %s (%s): %d node execution(s), "
+            "%d artifact(s) captured for prompt %s (some upstream nodes may be "
+            "missing if their provenance hadn't landed yet -- see this node's "
+            "docstring)",
+            zip_path,
+            crate_url,
             len(records),
+            len(artifacts),
             prompt_id,
         )
 
-        return (crate_dir,)
+        return (crate_url,)
 
     @staticmethod
-    def _build_graph(records, artifact_name, artifact_hash, artifact_size, encoding_format):
+    def _build_graph(records, artifacts):
         now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
         graph = [
@@ -176,17 +257,21 @@ class FLAIR_PackageProvenanceCrate:
                 "@type": "Dataset",
                 "name": "FLAIR-GG ComfyUI workflow run",
                 "datePublished": now,
-                "hasPart": [{"@id": artifact_name}]
+                "hasPart": [{"@id": a["filename"]} for a in artifacts]
                 + [{"@id": f"#action-{r['node_id']}"} for r in records],
             },
-            {
-                "@id": artifact_name,
-                "@type": "File",
-                "contentSize": str(artifact_size),
-                "sha256": artifact_hash,
-                "encodingFormat": encoding_format,
-            },
         ]
+
+        for a in artifacts:
+            graph.append(
+                {
+                    "@id": a["filename"],
+                    "@type": "File",
+                    "contentSize": str(a["size"]),
+                    "sha256": a["sha256"],
+                    "encodingFormat": a["encoding_format"],
+                }
+            )
 
         tools_seen = set()
         for record in records:

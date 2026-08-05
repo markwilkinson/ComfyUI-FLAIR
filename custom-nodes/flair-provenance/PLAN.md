@@ -159,12 +159,64 @@ and confirmed it correctly displayed all 5 records from the first prompt.
 ## `FLAIR_PackageProvenanceCrate`: built and verified, status DONE (v1 scope)
 
 Lives in `nodes/packaging.py`. Wired to the workflow's actual terminal
-output as a genuine data input (`final_output`, type `"*"`/`IO.ANY`) --
+output(s) as a genuine data input (`final_output`, type `"*"`/`IO.ANY`) --
 gets correct execution ordering for free from ComfyUI's own dependency
 scheduler, exactly per the original design. Writes a real
 `ro-crate-metadata.json` (JSON-LD, `RO-Crate 1.1` + Workflow Run Crate +
-Provenance Run Crate `conformsTo`) into `output/<crate_name>_<prompt_id>/`,
-alongside the actual saved, content-hashed terminal artifact.
+Provenance Run Crate `conformsTo`), the content-hashed artifact(s), zips
+the whole thing into a single file under `output/`, and returns a working
+`/view?filename=...&type=output` download URL.
+
+**Multi-terminal-output: actually implemented, not just resolved at the
+design level.** The user pointed out their real workflow has multiple image
+outputs, surfacing this as a live blocker, not a hypothetical. Fix:
+`INPUT_IS_LIST = True` on the node -- pair with the stock `Create List`
+node upstream (bundle several same-typed outputs into one list there,
+wire that into `final_output`), and because `INPUT_IS_LIST` wraps *every*
+input in a list uniformly, a single directly-wired output arrives as a
+length-1 list too -- one code path handles both cases, not two. Verified
+directly (bypassing the graph, since `Create List` uses ComfyUI's newer
+"Autogrow" UI mechanism which doesn't have fixed input key names to
+construct via raw API JSON): two images in, `final_output_0.png` +
+`final_output_1.png` in the crate, both listed correctly in `hasPart`.
+
+**Downloadability: solved via ComfyUI's existing `/view` endpoint, not new
+server code.** The user asked how an end user would ever get this file off
+a web-hosted server's filesystem, and floated using the VP as a proxy over
+a shared filesystem. Checked `server.py` directly rather than assuming:
+`/view?filename=X&type=output` already serves *any* file type generically
+(mimetype-guessed, `application/octet-stream` fallback, proper
+`Content-Disposition`) when requested without `preview`/`channel=rgb` --
+not just images. So zipping the crate into one file under `output/` and
+returning that URL gets a real, working download for free. Verified with a
+plain `curl` GET: `HTTP 200`, `Content-Type: application/zip`, correct
+bytes. No shared filesystem with the VP needed.
+
+**Retention, not delete-after-download: built and verified, status DONE.**
+User request: "I don't want to store people's results on my server."
+First plan was a real delete-after-download route -- the stock `/view`
+endpoint has no such behavior and patching ComfyUI core is off the table,
+so this would've meant FLAIR's own aiohttp route, with a real wrinkle:
+`PromptServer.instance` (confirmed directly in `server.py`/`main.py`) isn't
+set until well after custom nodes finish loading, same reason
+`nodes_replacements.py` warns "PromptServer has no attribute instance" at
+import time in every session's logs this whole project -- so registering a
+route at package-import time like `register_cache_provider()` wouldn't
+work, and it would've needed deferred registration instead.
+
+The user then proposed something simpler before that got built: sweep
+(delete) any crate older than a week, triggered each time a new one is
+written, rather than trying to detect a completed download. **"Basically
+solves the problem"** without the route/deferred-registration complexity,
+and doesn't depend on the download actually happening (a route-based
+approach wouldn't clean up a crate nobody ever downloaded). Implemented as
+`_sweep_old_crates()` in `packaging.py`, scoped specifically to a new
+`output/flair_crates/` subfolder (crates moved out of bare `output/` for
+this reason) -- the sweep only ever touches `*.zip` files in that one
+directory, never the wider `output/` tree, so a bug in it can't delete
+something unrelated a user saved. Verified directly: pre-created a fake
+8-day-old zip, ran the packaging node, confirmed the old one was deleted
+and the new one survived.
 
 **The async-ordering risk flagged when this was still just a design note
 turned out to be addressable, not just a caveat to document.** This node's
@@ -187,16 +239,7 @@ shot: one `CreateAction` per captured node execution, one
 `INPUT_TYPES`/`RETURN_TYPES` (inputs are still just a hash, not literal
 values -- same limitation as part 1, unresolved until part 2 exists),
 native PROV-O/NanoPub storage (this writes RO-Crate JSON-LD directly, not
-as a derived export from an RDF layer -- see Format decision above),
-multi-terminal-output handling.
-
-**Multi-terminal-output resolution:** rather than building custom
-list/multi-input handling into this node, the user pointed out ComfyUI
-already ships a stock `Create List` utility node -- bundle several
-same-typed terminal outputs into one list there first, then wire that
-single list into `final_output`. `_save_artifact()` would need to iterate
-over a list to actually make use of this (not yet done -- natural small
-follow-up once someone needs it, not built speculatively ahead of need).
+as a derived export from an RDF layer -- see Format decision above).
 
 **A real bug found and fixed while building this:** the internal record's
 `timestamp` field was a raw `time.time()` float, not ISO 8601 -- caught by
@@ -228,11 +271,18 @@ custom-nodes/flair-provenance/
       through logs.
 - [x] Packaging node -- `FLAIR_PackageProvenanceCrate`, v1 scope (see
       above for exactly what that does and doesn't cover yet).
+- [x] Multi-terminal-output support (`INPUT_IS_LIST = True` +
+      stock `Create List`) -- implemented and verified, not just designed.
+- [x] Downloadable as a single zip via ComfyUI's existing `/view` endpoint
+      -- no new server code needed for this part.
+- [x] Crates older than a week are swept on every new write (explicit user
+      request -- don't retain people's results on the server indefinitely).
+      Simpler alternative to a real delete-after-download route, chosen by
+      the user once the route's deferred-registration complexity was
+      explained -- see the section above.
 - [ ] Base-class/decorator for literal-input capture on FLAIR-owned nodes
       -- now also the path to real `FormalParameter` bindings in the crate,
       not just literal inputs in the log.
-- [ ] Multi-terminal-output support in `_save_artifact()` (resolved at the
-      design level via stock `Create List`; not yet implemented).
 - [ ] Cache-hit provenance behavior (does a cache hit still emit a record?
       Decided in the original design discussion: yes, provenance purists
       would say so -- but `on_store` as currently used only fires on a

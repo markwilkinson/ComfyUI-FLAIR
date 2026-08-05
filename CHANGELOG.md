@@ -5,7 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.0] - 2026-08-05
+## [0.10.0] - 2026-08-05
+
+### Added
+
+- `FLAIR_PackageProvenanceCrate` now accepts multiple terminal outputs
+  (`INPUT_IS_LIST = True`, pair with ComfyUI's stock `Create List` node
+  upstream) instead of just one -- a real blocker the user hit with their
+  actual multi-image workflow, not a hypothetical. Verified: two images in,
+  both correctly saved and listed in the crate's `hasPart`.
+- The crate is now zipped into a single file (RO-Crate convention, and the
+  only way to get one clean download link) under a new
+  `output/flair_crates/` subfolder, with a working download URL returned
+  as `crate_url` (`/view?filename=...&subfolder=flair_crates&type=output`).
+  Confirmed ComfyUI's existing `/view` endpoint already serves any file
+  type generically (checked `server.py` directly) -- no new server route
+  needed for downloading.
+- Crates older than a week are swept (deleted) each time a new one is
+  written, scoped specifically to `output/flair_crates/` so it can never
+  touch anything else a user saved -- addresses "don't retain people's
+  results on the server" more simply than a real delete-after-download
+  route would have (which would've needed its own deferred-registration
+  aiohttp route, since `PromptServer.instance` isn't ready at
+  package-import time).
+- `docker/Dockerfile`: the container now runs as a non-root user (UID/GID
+  1000, matching the typical host default) instead of root, so files
+  written into the bind-mounted `docker/data/` volumes come out owned by
+  the host user, not root. Override at build time with `--build-arg
+  UID=$(id -u) --build-arg GID=$(id -g)` if needed. Existing installs need
+  a one-time `sudo chown -R $(id -u):$(id -g) docker/data/` to fix
+  already-root-owned files -- documented in README.md.
 
 ### Added
 

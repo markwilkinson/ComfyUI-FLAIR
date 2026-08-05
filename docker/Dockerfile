@@ -68,6 +68,22 @@ RUN pip install --no-cache-dir \
 # attached (e.g. `docker run` without compose).
 RUN mkdir -p models input output user custom_nodes
 
+# Run as a non-root user matching the typical host UID/GID (1000 -- the
+# default first-user UID on Debian/Ubuntu, and what this project's own dev
+# host uses) rather than root. Otherwise everything the container writes
+# into the bind-mounted host directories (docker-compose.yml's
+# ./data/{models,input,output,user}) -- saved workflows, RO-Crate outputs,
+# etc. -- comes out owned by root on the host side, needing sudo just to
+# read or back up. Override at build time with
+# `docker compose build --build-arg UID=$(id -u) --build-arg GID=$(id -g)`
+# if deploying on a host where the target user has a different UID/GID.
+ARG UID=1000
+ARG GID=1000
+RUN groupadd -g ${GID} comfyui \
+    && useradd -u ${UID} -g ${GID} -m -s /bin/bash comfyui \
+    && chown -R comfyui:comfyui /app/ComfyUI
+USER comfyui
+
 EXPOSE 8188
 
 # --listen 0.0.0.0 is required inside a container: ComfyUI's default

@@ -112,6 +112,8 @@ The container publishes port 8188 bound to `127.0.0.1` only (not exposed to the 
 
 **Bumping the pinned ComfyUI version:** edit `COMFYUI_REF` (a commit hash) at the top of `docker/Dockerfile`, then `docker compose build`.
 
+**Non-root container user:** the container runs as UID/GID 1000 (not root), so files it writes into the bind-mounted `docker/data/` (saved workflows, RO-Crate outputs, etc.) come out owned by the host user, not root — no `sudo` needed to read or back them up. 1000 is the default first-user UID/GID on Debian/Ubuntu; override at build time with `docker compose build --build-arg UID=$(id -u) --build-arg GID=$(id -g)` if deploying on a host where the target user has a different one. If you already had a container running as root before this change, fix the existing files once: `cd docker && sudo chown -R $(id -u):$(id -g) data/`.
+
 ### Reverse proxy (lighttpd)
 
 The Docker container's port 8188 is bound to `127.0.0.1` on the host, not exposed externally. Point lighttpd at it with `mod_proxy`, e.g.:
