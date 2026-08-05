@@ -5,15 +5,20 @@ for the current run into a Workflow Run RO-Crate. See ../PLAN.md.
 v1 scope, deliberately not the full spec in one shot (matching how every
 other FLAIR node started simple and iterated): real terminal output(s)
 saved as File entities, one CreateAction per captured node execution, one
-SoftwareApplication per distinct node class acting as `instrument`. Not yet
-built: full FormalParameter bindings from INPUT_TYPES/RETURN_TYPES, native
-PROV-O/NanoPub storage (see PLAN.md's Format decision) -- this writes
-RO-Crate JSON-LD directly as the working format, not as a derived export
-from an RDF layer that doesn't exist yet.
+SoftwareApplication per distinct node class acting as `instrument` (with a
+`description`, read from that node's own DESCRIPTION attribute -- ComfyUI's
+own convention, also shown as a UI tooltip, not something FLAIR invented;
+added per Alberto's request that node descriptions be part of captured
+provenance, not just a source comment). Not yet built: full FormalParameter
+bindings from INPUT_TYPES/RETURN_TYPES, native PROV-O/NanoPub storage (see
+PLAN.md's Format decision) -- this writes RO-Crate JSON-LD directly as the
+working format, not as a derived export from an RDF layer that doesn't
+exist yet.
 """
 
 import asyncio
 import hashlib
+import inspect
 import json
 import logging
 import os
@@ -22,6 +27,7 @@ import time
 import urllib.parse
 
 import folder_paths
+import nodes as comfy_nodes
 
 from ..provider import provider
 
@@ -74,6 +80,61 @@ def _sha256_of_file(path):
         for chunk in iter(lambda: f.read(65536), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _node_provenance_metadata(class_type):
+    """
+    Looks up what we can about a node class for its SoftwareApplication
+    entity: (description, source_code_sha256). Returns (None, None) if the
+    class can't be found or its source can't be read -- this must never
+    break packaging over metadata that's inherently best-effort (a stock
+    ComfyUI node, or a class that's since been removed/edited on disk
+    since the process started).
+
+    description: DESCRIPTION class attribute -- ComfyUI's own convention
+    (shown as a UI tooltip, not something FLAIR invented). Per Alberto's
+    request that node descriptions be part of captured provenance, not
+    just a source comment.
+
+    source_code_sha256: SHA-256 of the class's actual Python source
+    (inspect.getsource), not a manually-maintained version number.
+    Deliberately not the project's repo-wide VERSION (also included
+    separately, see softwareVersion below) -- a human-maintained version
+    number only changes if someone remembers to bump it, and a stale "GUID
+    that's the same after modification" is explicitly the failure mode
+    flagged as unacceptable. A content hash is correct by construction:
+    it's mechanically impossible for it to stay the same if the node's
+    code changed, and impossible for it to differ if the code didn't,
+    with no bump-discipline required from anyone.
+    """
+    cls = comfy_nodes.NODE_CLASS_MAPPINGS.get(class_type)
+    if cls is None:
+        return None, None
+
+    description = getattr(cls, "DESCRIPTION", None)
+
+    try:
+        source = inspect.getsource(cls)
+        source_hash = hashlib.sha256(source.encode("utf-8")).hexdigest()
+    except (OSError, TypeError):
+        source_hash = None
+
+    return description, source_hash
+
+
+def _flair_version():
+    """
+    Reads the FLAIR-GG toolchain's repo-wide VERSION (bumped every session
+    per this project's changelog convention -- see docker-compose.yml's
+    mount of ../VERSION). Human-readable and useful for correlating with
+    CHANGELOG.md, but NOT the mechanism relied on for "did this exact node
+    change" -- that's source_code_sha256 above, which can't drift stale.
+    """
+    try:
+        with open("/app/ComfyUI/flair_version.txt") as f:
+            return f.read().strip()
+    except OSError:
+        return None
 
 
 def _sweep_old_crates(crates_dir):
@@ -171,6 +232,13 @@ class FLAIR_PackageProvenanceCrate:
     FUNCTION = "package"
     OUTPUT_NODE = True
     CATEGORY = "FLAIR/provenance"
+    DESCRIPTION = (
+        "Packages this run's captured provenance and its terminal output(s) "
+        "into a Workflow Run RO-Crate (Provenance Run Crate profile), "
+        "zipped for download. Wire the workflow's actual final output(s) "
+        "in -- for multiple outputs, bundle them with a stock Create List "
+        "node first."
+    )
 
     async def package(self, final_output, crate_name=("flair-run",)):
         # INPUT_IS_LIST wraps every input, including plain widgets -- take
@@ -217,8 +285,16 @@ class FLAIR_PackageProvenanceCrate:
         shutil.rmtree(work_dir)
         zip_filename = os.path.basename(zip_path)
 
+        # FLAIR_PUBLIC_URL (set in docker-compose.yml's environment: block
+        # by whoever deploys this, not something an end user ever sees or
+        # configures) turns this into a fully-qualified URL that can be
+        # copy-pasted into any browser tab. Falls back to a relative path
+        # if unset -- correct behavior for local dev (venv/direct
+        # 127.0.0.1 access), just requires manually prepending the host.
+        base_url = os.environ.get("FLAIR_PUBLIC_URL", "").rstrip("/")
         crate_url = (
-            "/view?filename=" + urllib.parse.quote(zip_filename)
+            base_url
+            + "/view?filename=" + urllib.parse.quote(zip_filename)
             + "&subfolder=" + urllib.parse.quote(CRATE_SUBFOLDER)
             + "&type=output"
         )
@@ -273,19 +349,32 @@ class FLAIR_PackageProvenanceCrate:
                 }
             )
 
+        flair_version = _flair_version()
         tools_seen = set()
         for record in records:
             class_type = record["class_type"]
             tool_id = f"#node-{class_type}"
             if class_type not in tools_seen:
                 tools_seen.add(class_type)
-                graph.append(
-                    {
-                        "@id": tool_id,
-                        "@type": "SoftwareApplication",
-                        "name": class_type,
-                    }
-                )
+                tool_entity = {
+                    "@id": tool_id,
+                    "@type": "SoftwareApplication",
+                    "name": class_type,
+                }
+                description, source_hash = _node_provenance_metadata(class_type)
+                if description:
+                    tool_entity["description"] = description
+                if flair_version:
+                    tool_entity["softwareVersion"] = flair_version
+                if source_hash:
+                    # Not a schema.org-standard property (there isn't one
+                    # for "exact source code identity" -- softwareVersion
+                    # above is the closest standard field, but see
+                    # _node_provenance_metadata's docstring for why a
+                    # content hash is the actual correctness guarantee,
+                    # not the human-maintained version number).
+                    tool_entity["flair:sourceCodeSha256"] = source_hash
+                graph.append(tool_entity)
 
             graph.append(
                 {

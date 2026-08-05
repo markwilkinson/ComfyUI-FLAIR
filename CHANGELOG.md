@@ -5,6 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-08-05
+
+### Added
+
+- `custom-nodes/HOW_TO_CREATE_NODES.md` — conventions, gotchas, and testing
+  patterns for adding a new FLAIR node, distilled from real issues hit this
+  session (the category-prefix/declutter interaction, the missing-dependency
+  pattern, `INPUT_IS_LIST`/async-function executor behavior, direct-call vs.
+  real-queue testing). Written for a human contributor and a fresh Claude
+  session alike.
+- `docker-compose.yml`'s `FLAIR_PUBLIC_URL` environment variable — set once
+  by whoever deploys this, invisible to end users, turns
+  `FLAIR_PackageProvenanceCrate`'s `crate_url` output into a
+  fully-qualified, copy-paste-anywhere download URL instead of a relative
+  path. Verified end-to-end via `PreviewAny`.
+- `../workflows/` (already existed, empty, unused) is now bind-mounted
+  directly onto ComfyUI's real workflow-loading path
+  (`user/default/workflows/`), so workflow `.json` files committed to the
+  repo ship to every server that clones it, and anything saved through the
+  UI becomes a normal reviewable `git status` change instead of invisible
+  container state. Verified: a file placed in the repo folder is
+  immediately visible via ComfyUI's own userdata API, no restart needed.
+  A new "Deploying to a new server" README section documents exactly what
+  does and doesn't transfer via `git clone`.
+- Every FLAIR node now sets `DESCRIPTION` (ComfyUI's own convention — a UI
+  tooltip, confirmed via `/object_info`, not invented by this project) —
+  Alberto's request that node descriptions be part of captured provenance,
+  not just a source comment. `flair-provenance/nodes/packaging.py` reads it
+  into each node's `SoftwareApplication` entity's `description` field.
+  Verified in a real crate's `ro-crate-metadata.json`.
+- Node code identity in the crate: each `SoftwareApplication` now also
+  carries `softwareVersion` (the repo-wide `VERSION` file, mounted
+  read-only via `docker-compose.yml`) and `flair:sourceCodeSha256` (SHA-256
+  of that node class's actual Python source). The version alone was
+  explicitly flagged as insufficient — a human-maintained number only
+  changes if someone remembers to bump it — so the source hash exists
+  specifically to be correct by construction: guaranteed to differ if and
+  only if the node's code differs. Verified directly: edited one node's
+  source with `VERSION` deliberately left unchanged, confirmed
+  `softwareVersion` stayed identical while `sourceCodeSha256` changed.
+
+### Changed
+
+- README's comparison matrix: split the previously-bundled "Nextflow /
+  Snakemake" row (marked "general knowledge only") into two separately
+  researched rows, and added Taverna. Both Nextflow (`nf-prov`, official
+  plugin) and Snakemake (`snakemake-report-plugin-rocrate`, official) turn
+  out to have first-party RO-Crate export support — genuinely surprised
+  the original comparison, which had assumed no built-in support existed.
+  Taverna is included for lineage (the Wf4Ever project's Research Object
+  concept, built around Taverna, is a direct ancestor of RO-Crate itself)
+  and because WorkflowHub still hosts a real population of Taverna-origin
+  workflows migrated from myExperiment, despite the tool itself being
+  largely unmaintained since the mid-2010s. This project's own matrix row
+  updated from "Planned, not yet built" to reflect the now-real (v1 scope)
+  provenance capture.
+
 ## [0.10.0] - 2026-08-05
 
 ### Added

@@ -67,6 +67,11 @@ class FLAIR_PlotCategoryCounts:
     RETURN_NAMES = ("plot",)
     FUNCTION = "plot"
     CATEGORY = "FLAIR/plots"
+    DESCRIPTION = (
+        "Bar plot of how many rows fall into each value of a category "
+        "column (Seaborn countplot). Column name and order are "
+        "caller-specified, not hardcoded to any one notebook's schema."
+    )
 
     def plot(
         self,
@@ -155,6 +160,11 @@ class FLAIR_PlotStackedCategoryCounts:
     RETURN_NAMES = ("plot", "summary")
     FUNCTION = "plot"
     CATEGORY = "FLAIR/plots"
+    DESCRIPTION = (
+        "Stacked bar plot of category counts grouped by a second column "
+        "(e.g. provider). Also returns a plain-text category/group summary "
+        "-- the same information the source notebook printed to stdout."
+    )
 
     def plot(
         self,

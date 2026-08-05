@@ -78,6 +78,17 @@ class FLAIR_LoadBySecretKey:
     RETURN_NAMES = ("provider_data",)
     FUNCTION = "load"
     CATEGORY = "FLAIR/loaders"
+    # ComfyUI's own convention (shown as a node tooltip in the UI) -- also
+    # read by flair-provenance/nodes/packaging.py to describe this node's
+    # SoftwareApplication entity in the RO-Crate, per Alberto's request that
+    # node descriptions be part of the captured provenance, not just a
+    # source comment nobody outside the codebase ever sees.
+    DESCRIPTION = (
+        "Fetches a FLAIR-GG Virtual Platform federated-query result by its "
+        "secret key. Returns the outer-decoded {provider_url: raw_payload} "
+        "dict -- per-provider payload parsing (JSON vs. CSV) is left to a "
+        "downstream node."
+    )
 
     def load(self, key, base_url_template=DEFAULT_BASE_URL, timeout_seconds=30.0):
         # Defends against a real failure mode: pasting a key from another
@@ -167,6 +178,12 @@ class FLAIR_ProviderDataFromText:
     RETURN_NAMES = ("provider_data",)
     FUNCTION = "load"
     CATEGORY = "FLAIR/loaders"
+    DESCRIPTION = (
+        "Testing/authoring alternative to FLAIR_LoadBySecretKey: parses "
+        "pasted {provider_url: raw_payload} JSON with no network call, so "
+        "downstream nodes can be tested against known sample data without "
+        "a live secret key."
+    )
 
     def load(self, json_text):
         if not json_text or not json_text.strip():

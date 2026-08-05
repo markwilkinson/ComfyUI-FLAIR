@@ -44,6 +44,12 @@ class FLAIR_ShowProvenanceLog:
     RETURN_NAMES = ("provenance_log",)
     FUNCTION = "show"
     CATEGORY = "FLAIR/provenance"
+    DESCRIPTION = (
+        "Shows FLAIRProvenanceCacheProvider's captured records as readable "
+        "JSON -- view provenance without digging through container logs. "
+        "No required inputs (reads global process state); run the "
+        "workflow you want to inspect first, then queue this separately."
+    )
 
     def show(self, which):
         sections = []

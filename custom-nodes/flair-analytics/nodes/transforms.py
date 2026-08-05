@@ -40,6 +40,11 @@ class FLAIR_DeduplicateRows:
     RETURN_NAMES = ("cleaned_data",)
     FUNCTION = "deduplicate"
     CATEGORY = "FLAIR/transforms"
+    DESCRIPTION = (
+        "Drops duplicate rows and rows missing a value, checked against "
+        "caller-specified column names (comma-separated). Leave empty to "
+        "consider all columns."
+    )
 
     def deduplicate(self, data, subset_columns=""):
         columns = [c.strip() for c in subset_columns.split(",") if c.strip()]

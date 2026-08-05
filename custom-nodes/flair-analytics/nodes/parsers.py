@@ -42,6 +42,13 @@ class FLAIR_ParseCSVPayload:
     RETURN_NAMES = ("combined_data",)
     FUNCTION = "parse"
     CATEGORY = "FLAIR/parsers"
+    DESCRIPTION = (
+        "Parses each provider's CSV payload via pandas, tags rows with "
+        "provider_url/provider_host, and concatenates into one combined "
+        "DataFrame. A provider returning zero rows contributes nothing "
+        "without erroring; a provider whose payload isn't valid CSV is "
+        "skipped with a warning rather than failing the whole batch."
+    )
 
     def parse(self, provider_data):
         frames = []

@@ -280,6 +280,34 @@ custom-nodes/flair-provenance/
       Simpler alternative to a real delete-after-download route, chosen by
       the user once the route's deferred-registration complexity was
       explained -- see the section above.
+- [x] `FLAIR_PUBLIC_URL` env var (set in `docker-compose.yml`, not
+      user-facing) turns `crate_url` into a fully-qualified,
+      copy-paste-anywhere URL instead of a relative path end users would
+      have to manually combine with the hostname.
+- [x] Node descriptions in the crate (Alberto's request): every FLAIR
+      node now carries a `DESCRIPTION` class attribute -- ComfyUI's own
+      convention (shown as a UI tooltip too, confirmed via `/object_info`,
+      not something FLAIR invented), read into each `SoftwareApplication`
+      entity's `description` field. Verified in a real crate's
+      `ro-crate-metadata.json`. See
+      `custom-nodes/HOW_TO_CREATE_NODES.md` for the convention going
+      forward -- every new node should set `DESCRIPTION`, not just a
+      docstring, or it won't show up in the crate.
+- [x] Node code identity in the crate ("which version of a node produced
+      this output" -- explicit follow-up question once descriptions
+      landed). Two fields on each `SoftwareApplication`: `softwareVersion`
+      (the repo-wide `VERSION` file, mounted read-only from
+      `docker-compose.yml`) and a non-standard `flair:sourceCodeSha256`
+      (SHA-256 of that node class's actual Python source via
+      `inspect.getsource`). The version alone was explicitly rejected as
+      insufficient -- "if the GUID of a node is the same after
+      modification, then I am not happy" -- because it only changes if a
+      human remembers to bump it. The source hash is correct by
+      construction instead: mechanically guaranteed to differ if and only
+      if the node's code differs, no bump discipline required from anyone.
+      Verified directly, not just argued: made a one-line comment edit to
+      a node with `VERSION` deliberately left unchanged, reran, confirmed
+      `softwareVersion` stayed identical while `sourceCodeSha256` changed.
 - [ ] Base-class/decorator for literal-input capture on FLAIR-owned nodes
       -- now also the path to real `FormalParameter` bindings in the crate,
       not just literal inputs in the log.

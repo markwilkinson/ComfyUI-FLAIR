@@ -6,6 +6,15 @@ services:
     image: comfyui-flair:latest
     container_name: comfyui-flair
     restart: unless-stopped
+    environment:
+      # Externally-reachable base URL for this instance -- set once here by
+      # whoever deploys this, so FLAIR_PackageProvenanceCrate can return a
+      # fully-qualified, copy-paste-anywhere download URL instead of a
+      # relative path end users would have to manually combine with the
+      # hostname themselves. Currently just localhost:8188 (accessed
+      # directly on the host, no reverse proxy in front yet); update this
+      # to the real public hostname if/when one is added later.
+      - FLAIR_PUBLIC_URL=http://localhost:8188
     ports:
       # Bound to localhost only -- lighttpd (or whatever reverse proxy is in
       # front) talks to 127.0.0.1:8188 on the host; the port is not meant to
@@ -28,3 +37,25 @@ services:
       # ComfyUI ships there (websocket_image_save.py) won't show up -- not
       # part of this project, not a loss that matters here.
       - ../custom-nodes:/app/ComfyUI/custom_nodes:ro
+
+      # FLAIR workflows: ../workflows is a real, git-tracked directory in
+      # this repo (not gitignored, unlike the rest of ./data/user/) --
+      # mounted directly onto ComfyUI's actual workflow-loading path, one
+      # level deeper than the ./data/user mount above (Docker resolves the
+      # more specific nested mount for that subpath). Anything committed to
+      # ../workflows/*.json ships automatically to every deployment that
+      # clones this repo; anything a user saves through the UI lands there
+      # too, so `git status` in this repo shows it as a real, reviewable
+      # change instead of invisible container state.
+      - ../workflows:/app/ComfyUI/user/default/workflows
+
+      # FLAIR-GG toolchain version (the same VERSION file bumped every
+      # session per this project's changelog convention) -- read by
+      # flair-provenance/nodes/packaging.py and stamped onto every node's
+      # `softwareVersion` in the RO-Crate, so a crate records not just
+      # which node ran but which version of this project's code it was.
+      # Deliberately repo-wide, not per-node: there's no independent
+      # per-node version scheme, and inventing one risks drifting stale
+      # (a wrong version number is worse than none) for no real benefit,
+      # since all FLAIR nodes ship from one repo on one release cycle.
+      - ../VERSION:/app/ComfyUI/flair_version.txt:ro
