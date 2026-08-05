@@ -3,14 +3,14 @@ The FLAIR Interoperability Platform enables the creation of multi-resource workf
 
 This repo (`ComfyUI-FLAIR`) holds FLAIR-specific custom nodes, workflows, and deployment tooling. It does **not** contain the ComfyUI engine itself — that's a separate clone of [ComfyUI](https://github.com/Comfy-Org/ComfyUI), expected to live as a sibling directory (`../ComfyUI`) next to this repo.
 
-Custom node packages live under [custom-nodes/](custom-nodes/):
+Core custom node packages — the ones every deployment always has, tracked directly in this repo under [custom-nodes/](custom-nodes/):
 
 - `flair_declutter` — hides Stable-Diffusion/diffusion-model nodes from the ComfyUI picker at runtime (no core files patched — see the docstring in [`custom-nodes/flair_declutter/__init__.py`](custom-nodes/flair_declutter/__init__.py) for the exact mechanism).
-- `flair-analytics` — ports of the [FLAIR-GG-Analytics](https://github.com/wilkinsonlab/FLAIR-GG-Analytics) Jupyter notebooks into ComfyUI nodes, one node at a time. See [`custom-nodes/flair-analytics/PLAN.md`](custom-nodes/flair-analytics/PLAN.md) for the porting strategy and package layout (organized by node category under `nodes/`, not one flat file).
 - `flair-provenance` — automatic FAIR/RO-Crate provenance capture for every workflow run, no per-node wiring required. See [`custom-nodes/flair-provenance/PLAN.md`](custom-nodes/flair-provenance/PLAN.md) for the design and current status.
-- `useless_text` — throwaway 4-node demo used to learn the ComfyUI custom-node interface. Not part of the real project.
 
-**Writing a new node yourself?** See [`custom-nodes/HOW_TO_CREATE_NODES.md`](custom-nodes/HOW_TO_CREATE_NODES.md) — conventions, gotchas, and testing patterns established across all the packages above, written for both a human contributor and a fresh Claude session picking this project up cold.
+Everything else — domain-specific node packages (e.g. `flair-analytics`, the FLAIR-GG-Analytics IUCN pipeline port) and example workflows — lives in the separate [ComfyUI-FLAIR-Catalog](https://github.com/markwilkinson/ComfyUI-FLAIR-Catalog) repo and is opt-in per deployment; see "Installing from the catalog" below.
+
+**Writing a new node yourself?** See [`custom-nodes/HOW_TO_CREATE_NODES.md`](custom-nodes/HOW_TO_CREATE_NODES.md) — conventions, gotchas, and testing patterns established across the packages above, written for both a human contributor and a fresh Claude session picking this project up cold.
 
 ## Why this, instead of an existing bioinformatics workflow tool?
 
@@ -79,9 +79,11 @@ venv/bin/pip uninstall -y \
 Symlink the FLAIR custom nodes in:
 
 ```bash
-ln -s ../../ComfyUI-FLAIR/custom-nodes/flair_declutter ComfyUI/custom_nodes/flair_declutter
-ln -s ../../ComfyUI-FLAIR/custom-nodes/useless_text     ComfyUI/custom_nodes/useless_text
+ln -s ../../ComfyUI-FLAIR/custom-nodes/flair_declutter  ComfyUI/custom_nodes/flair_declutter
+ln -s ../../ComfyUI-FLAIR/custom-nodes/flair-provenance ComfyUI/custom_nodes/flair-provenance
 ```
+
+(Symlink in anything installed from the catalog the same way, once you've run `scripts/install_from_catalog.sh` — see "Installing from the catalog" below.)
 
 Run it:
 
@@ -143,11 +145,25 @@ ComfyUI uses WebSockets for live execution progress in the graph editor, so make
 
 `git clone` this repo, `git clone` [ComfyUI](https://github.com/Comfy-Org/ComfyUI) as its sibling directory, then follow Option B above. What that single `git clone` does and doesn't bring with it:
 
-- **Custom nodes: yes, automatically.** Everything under `custom-nodes/` is a normal tracked file, nothing gitignored — a fresh clone has every FLAIR node package immediately.
-- **Workflows: yes, automatically.** `workflows/` at the repo root is a real, git-tracked directory, bind-mounted directly onto ComfyUI's actual workflow-loading path (`user/default/workflows/` — see `docker-compose.yml`). Commit a workflow's `.json` file there and it ships to every server that clones the repo from then on; anything a user saves through the UI lands there too, so it shows up as a normal reviewable `git status` change, not invisible container state.
-- **`docker/data/{models,input,output,user}`: no, deliberately not.** This is runtime state — downloaded model weights, run history, the asset-tracking SQLite DB — gitignored on purpose (`docker/data/` in `.gitignore`) and not meant to travel via git. A new server starts with these genuinely empty; nothing needs to be copied in for the system to work, since `models`/`input`/`output` are populated as you go and `user/default/workflows` specifically is now handled by the mount above instead.
+- **Core custom nodes: yes, automatically.** `custom-nodes/flair_declutter` (the node-hiding mechanism) and `custom-nodes/flair-provenance` (the RO-Crate/PROV-O capture system — the whole reason this project exists) are normal tracked files, nothing gitignored. A fresh clone always has these two, and only these two, immediately.
+- **Everything else (domain node packages, workflows): no, opt-in via the catalog.** `custom-nodes/` and `workflows/` are still real, git-tracked, whole-directory bind-mounted onto ComfyUI's actual paths (see `docker-compose.yml`) — but a fresh clone of *this* repo ships them empty (beyond the two core packages above and a `workflows/.gitkeep` placeholder so the directory itself survives the clone). What actually populates them is a deliberate choice: see "Installing from the catalog" below.
+- **`docker/data/{models,input,output,user}`: no, deliberately not.** This is runtime state — downloaded model weights, run history, the asset-tracking SQLite DB — gitignored on purpose (`docker/data/` in `.gitignore`) and not meant to travel via git. A new server starts with these genuinely empty; nothing needs to be copied in for the system to work.
 
-Because saving through the web UI writes straight into this repo's tracked `workflows/` folder, this repo's maintainer is the sole authority over which workflows actually ship — nothing lands in `workflows/*.json` in the upstream repo without going through a normal commit (or a pull request from someone else) and review. Anyone running their own deployment is free to save, edit, or delete whatever they like in their own `workflows/` folder; that's local to their fork/clone and never affects the upstream repo unless they open a PR.
+Because saving through the web UI writes straight into this repo's tracked `workflows/` folder, this repo's maintainer is the sole authority over which workflows/nodes ship in *this* repo — nothing lands here without going through a normal commit (or a pull request) and review. Anyone running their own deployment is free to save, edit, or delete whatever they like in their own checkout; that's local to their fork/clone and never affects the upstream repo unless they open a PR.
+
+### Installing from the catalog
+
+Domain-specific nodes (like the FLAIR-GG-Analytics IUCN pipeline) and example workflows live in a separate repo, [ComfyUI-FLAIR-Catalog](https://github.com/markwilkinson/ComfyUI-FLAIR-Catalog), not in this one. The idea: a distro's custodian decides what their deployment actually needs and installs only that — a lab running a single-purpose kiosk can ship just one workflow, instead of everyone's contributions bundled in by default.
+
+```bash
+# clone the catalog as a sibling of this repo, same convention as ComfyUI itself
+git clone https://github.com/markwilkinson/ComfyUI-FLAIR-Catalog ../ComfyUI-FLAIR-Catalog
+
+# install whatever you want -- node packages and/or workflows, by name
+scripts/install_from_catalog.sh flair-analytics iucn_endangered_species_survey
+```
+
+This copies the named items into `custom-nodes/`/`workflows/` (not symlinks — Docker's bind mounts only see this repo's own tree, so a symlink to the sibling catalog checkout would dangle inside the container). Nothing is auto-committed; review with `git status`/`git diff` and commit it as part of your own deployment, same as any other change. See the catalog repo's README for the full list of what's available and how to contribute something back to it.
 
 ## Deployment context
 

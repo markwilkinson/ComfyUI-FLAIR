@@ -36,17 +36,28 @@ services:
       # custom_nodes/ dir rather than adding to it, so the one stock example
       # ComfyUI ships there (websocket_image_save.py) won't show up -- not
       # part of this project, not a loss that matters here.
+      #
+      # A fresh clone of ComfyUI-FLAIR only has flair_declutter and
+      # flair-provenance under ../custom-nodes/ -- everything else (domain
+      # node packages like flair-analytics) is opt-in, pulled in from
+      # https://github.com/markwilkinson/ComfyUI-FLAIR-Catalog via
+      # ../scripts/install_from_catalog.sh. The custodian of a given
+      # deployment decides what actually lands here; nothing ships by
+      # default beyond the two core packages.
       - ../custom-nodes:/app/ComfyUI/custom_nodes:ro
 
       # FLAIR workflows: ../workflows is a real, git-tracked directory in
       # this repo (not gitignored, unlike the rest of ./data/user/) --
       # mounted directly onto ComfyUI's actual workflow-loading path, one
       # level deeper than the ./data/user mount above (Docker resolves the
-      # more specific nested mount for that subpath). Anything committed to
-      # ../workflows/*.json ships automatically to every deployment that
-      # clones this repo; anything a user saves through the UI lands there
-      # too, so `git status` in this repo shows it as a real, reviewable
-      # change instead of invisible container state.
+      # more specific nested mount for that subpath). A fresh clone ships
+      # this empty (just a .gitkeep placeholder, so the directory itself
+      # survives `git clone`) -- workflows are opt-in from the catalog repo
+      # the same way node packages are, via ../scripts/install_from_catalog.sh.
+      # Anything committed to ../workflows/*.json in THIS repo ships to every
+      # deployment that clones it from then on; anything a user saves
+      # through the UI lands there too, so `git status` in this repo shows
+      # it as a real, reviewable change instead of invisible container state.
       - ../workflows:/app/ComfyUI/user/default/workflows
 
       # FLAIR-GG toolchain version (the same VERSION file bumped every

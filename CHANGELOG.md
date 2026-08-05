@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-08-05
+
+### Added
+
+- New sibling repo [ComfyUI-FLAIR-Catalog](https://github.com/markwilkinson/ComfyUI-FLAIR-Catalog):
+  a curated, opt-in catalog of domain node packages and example workflows,
+  decoupled from this repo so a distro custodian can pick exactly what they
+  need (e.g. a single-purpose kiosk deployment shipping just one workflow)
+  instead of inheriting everything by default.
+- `scripts/install_from_catalog.sh` — copies named items (node packages or
+  workflows) from a sibling catalog checkout into `custom-nodes/`/`workflows/`.
+  Copies, not symlinks, so results work unchanged with the existing Docker
+  bind-mounts. Does not auto-commit; the custodian reviews and commits.
+
+### Changed
+
+- `flair-analytics` and `useless_text` moved out of `custom-nodes/` into the
+  catalog repo (`nodes/flair-analytics`, `nodes/useless_text`); the one
+  committed workflow moved to the catalog too, renamed
+  `iucn_endangered_species_survey.json` (fixes an "Endanged" typo, drops
+  spaces so it works as a plain install-script argument). `flair_declutter`
+  and `flair-provenance` stay in this repo as core infrastructure — every
+  deployment always has them.
+- README and `docker-compose.yml` mount comments updated to describe the
+  new model: a fresh clone ships only the two core node packages and an
+  empty (but git-tracked, via `.gitkeep`) `workflows/` directory.
+
 ## [0.13.0] - 2026-08-05
 
 ### Added
