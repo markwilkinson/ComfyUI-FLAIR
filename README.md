@@ -1,7 +1,7 @@
 # ComfyUI-FLAIR
 The FLAIR Interoperability Platform enables the creation of multi-resource workflows.  Here we store custom nodes and workflows that can be created inside of the ComfyUI workflow design environment.
 
-This repo (`ComfyUI-FLAIR`) holds FLAIR-specific custom nodes, workflows, and deployment tooling. It does **not** contain the ComfyUI engine itself — that's a separate clone of [ComfyUI](https://github.com/Comfy-Org/ComfyUI), expected to live as a sibling directory (`../ComfyUI`) next to this repo.
+This repo (`ComfyUI-FLAIR`) holds FLAIR-specific custom deployment configuration for using ComfyUI with the FLAIR-GG infrastructure. It does **not** contain the ComfyUI engine itself (this is loaded by Docker); this customization is used to modify the default Comfy created by Docker using mounted volumes.  
 
 Core custom node packages — the ones every deployment always has, tracked directly in this repo under [custom-nodes/](custom-nodes/):
 
