@@ -6,6 +6,7 @@
 #
 # Usage:
 #   scripts/install_from_catalog.sh <item> [<item> ...]
+#   scripts/install_from_catalog.sh '*'          # install everything in the catalog
 #
 # Looks for the catalog at ../ComfyUI-FLAIR-Catalog by default (a sibling
 # clone, same convention this repo already uses for ComfyUI itself).
@@ -38,17 +39,35 @@ if [ ! -d "$CATALOG_DIR" ]; then
     exit 1
 fi
 
-list_available() {
-    echo "Available in $CATALOG_DIR:" >&2
+all_node_names() {
     for d in "$CATALOG_DIR"/nodes/*/; do
-        [ -d "$d" ] && echo "  node:     $(basename "$d")" >&2
-    done
-    for f in "$CATALOG_DIR"/workflows/*.json; do
-        [ -f "$f" ] && echo "  workflow: $(basename "$f" .json)" >&2
+        [ -d "$d" ] && basename "$d"
     done
 }
 
-for item in "$@"; do
+all_workflow_names() {
+    for f in "$CATALOG_DIR"/workflows/*.json; do
+        [ -f "$f" ] && basename "$f" .json
+    done
+}
+
+list_available() {
+    echo "Available in $CATALOG_DIR:" >&2
+    while IFS= read -r name; do echo "  node:     $name" >&2; done < <(all_node_names)
+    while IFS= read -r name; do echo "  workflow: $name" >&2; done < <(all_workflow_names)
+}
+
+items=("$@")
+if [ "${#items[@]}" -eq 1 ] && [ "${items[0]}" = "*" ]; then
+    mapfile -t items < <(all_node_names; all_workflow_names)
+    if [ "${#items[@]}" -eq 0 ]; then
+        echo "Error: catalog at $CATALOG_DIR has no nodes/ or workflows/ entries" >&2
+        exit 1
+    fi
+    echo "Installing everything in the catalog (${#items[@]} items)..."
+fi
+
+for item in "${items[@]}"; do
     node_src="$CATALOG_DIR/nodes/$item"
     workflow_src="$CATALOG_DIR/workflows/$item.json"
 

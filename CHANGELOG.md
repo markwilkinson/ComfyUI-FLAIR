@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-08-29
+
+### Added
+
+- `scripts/install_from_catalog.sh` now accepts `'*'` as a single argument to
+  install every node package and workflow the catalog has, instead of naming
+  each one individually.
+
+### Fixed
+
+- README's Docker deployment instructions: documented that
+  `docker-compose.yml`'s bind mounts (`../custom-nodes`, `../workflows`,
+  `../VERSION`) are relative to the compose file's own location and require
+  it to still be run from inside a full checkout of this repo. Copying just
+  `docker-compose.yml`/`Dockerfile` into a separate deployment folder points
+  those paths at nonexistent directories — which Docker silently mounts as
+  *empty* rather than erroring, producing a container with no FLAIR custom
+  nodes (so `flair_declutter` never hides the stock Stable-Diffusion nodes)
+  and none of the installed catalog nodes either. Added the required
+  directory layout for a separate deployment folder, a
+  `docker compose exec comfyui ls /app/ComfyUI/custom_nodes` sanity check,
+  and a note that `install_from_catalog.sh` must be run from the same
+  checkout `docker compose` uses.
+
 ## [0.14.0] - 2026-08-05
 
 ### Added

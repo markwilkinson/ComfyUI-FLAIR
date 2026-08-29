@@ -101,6 +101,23 @@ Everything needed is in [docker/](docker/): a `Dockerfile` that clones ComfyUI p
 - `docker/data/{models,input,output,user}` — persistent ComfyUI data, on the host.
 - `../custom-nodes/` — the whole directory, mounted read-only as ComfyUI's entire `custom_nodes/` folder. Edit a node's `.py` file on the host, restart the container, done — no image rebuild, no compose edit either.
 
+**Run `docker compose` from inside this repo checkout — never from a copy of just `docker-compose.yml`/`Dockerfile` elsewhere.** `docker-compose.yml`'s bind mounts for custom nodes and workflows are relative paths (`../custom-nodes`, `../workflows`, `../VERSION`), resolved relative to wherever `docker-compose.yml` itself lives. They assume that file is still sitting in `ComfyUI-FLAIR/docker/`, next to the sibling `custom-nodes/`, `workflows/` and `VERSION` this repo's `git clone` gives you. If you copy `docker-compose.yml`/`Dockerfile` into a separate deployment folder (e.g. a `SERVER/` directory that isn't itself a checkout of this repo), those `../` paths point at directories that don't exist on the host — and **Docker does not error on that**: a missing bind-mount source is silently auto-created as an empty directory. The result is a `custom_nodes/` mount that's empty: `flair_declutter` never loads (so every stock Stable-Diffusion node stays visible), and nothing you installed from the catalog appears either, no matter where else you copied it — `data/` only ever maps to `models/input/output/user`, it is never the source for `custom_nodes/` or `workflows/`.
+
+If you want the build context somewhere other than a plain `git clone` checkout (e.g. a dedicated `SERVER/` deployment folder), mirror this repo's layout exactly rather than pulling out the two docker files alone:
+
+```
+SERVER/
+├── VERSION
+├── custom-nodes/       # flair_declutter, flair-provenance, + anything from install_from_catalog.sh
+├── workflows/          # anything from install_from_catalog.sh
+└── docker/
+    ├── Dockerfile
+    ├── docker-compose.yml
+    └── data/{models,input,output,user}/
+```
+
+then run `docker compose` from `SERVER/docker/`. Simplest of all: just `git clone` this repo as `SERVER` and follow "Deploying to a new server" below — that gives you this exact layout for free.
+
 Build and run:
 
 ```bash
@@ -116,6 +133,15 @@ Check it's up:
 docker compose logs -f
 curl http://127.0.0.1:8188/
 ```
+
+**Sanity-check the mount actually has content**, especially after any manual copying — this is the single most common way to end up with the stock SD menu and none of your own nodes:
+
+```bash
+docker compose exec comfyui ls /app/ComfyUI/custom_nodes
+# must show at least: flair_declutter  flair-provenance  (plus anything you installed from the catalog)
+```
+
+If that comes back empty, the bind mount source is wrong — fix the host-side `../custom-nodes` path (or the layout above), then `docker compose down && docker compose up -d` (a plain restart won't re-resolve a bind mount source that changed).
 
 The container publishes port 8188 bound to `127.0.0.1` only (not exposed to the outside network directly) — see "Reverse proxy" below.
 
@@ -164,6 +190,8 @@ scripts/install_from_catalog.sh flair-analytics iucn_endangered_species_survey
 ```
 
 This copies the named items into `custom-nodes/`/`workflows/` (not symlinks — Docker's bind mounts only see this repo's own tree, so a symlink to the sibling catalog checkout would dangle inside the container). Nothing is auto-committed; review with `git status`/`git diff` and commit it as part of your own deployment, same as any other change. See the catalog repo's README for the full list of what's available and how to contribute something back to it.
+
+Run `install_from_catalog.sh` from *this repo's own checkout* — the one whose `docker/docker-compose.yml` you're actually going to run. It writes into `custom-nodes/`/`workflows/` next to wherever it's invoked; those are exactly the directories `../custom-nodes` and `../workflows` in `docker-compose.yml` expect to find populated (see the warning under "Option B: Docker" above). There is nothing to separately "copy into place" afterwards — if you ran the script and then still had to manually copy `custom-nodes`/`workflows` somewhere else before `docker compose up`, that's a sign the compose file isn't running from this same checkout.
 
 ## Deployment context
 
